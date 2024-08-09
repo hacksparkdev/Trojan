@@ -20,7 +20,7 @@ def screenshot(name='screenshot'):
     mem_dc = img_dc.CreateCompatibleDC()
 
     screenshot = win32ui.CreateBitmap()
-    screenshot/CreateCompatibleBitmap(img_dc, width, height)
+    screenshot.CreateCompatibleBitmap(img_dc, width, height)
     mem_dc.SelectObject(screenshot)
     mem_dc.BitBtl((0,0), (width, height, img_dc, (left,top), win32con.SRCCOPYU))
     screenshot.SaveBitmapFile(mem_dc, f'{name}.bmp')
