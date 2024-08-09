@@ -35,4 +35,4 @@ def run():
     return img
 
 if __name__ == '__main__':
-    screenshot()
+    screenshot(d)
