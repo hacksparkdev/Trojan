@@ -1,4 +1,4 @@
-import base64 
+import os
 import win32api
 import win32con
 import win32gui
@@ -11,7 +11,11 @@ def get_dimensions():
     top = win32api.GetSystemMetrics(win32con.SM_YVIRTUALSCREEN)
     return (width, height, left, top)
 
-def screenshot(name='screenshot'):
+def screenshot(directory='screen', name='screenshot'):
+    # Create the directory if it doesn't exist
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
     hdesktop = win32gui.GetDesktopWindow()
     width, height, left, top = get_dimensions()
 
@@ -23,17 +27,19 @@ def screenshot(name='screenshot'):
     screenshot_bitmap.CreateCompatibleBitmap(img_dc, width, height)
     mem_dc.SelectObject(screenshot_bitmap)
 
-    # Corrected attribute from SRCCOPYU to SRCCOPY
     mem_dc.BitBlt((0, 0), (width, height), img_dc, (left, top), win32con.SRCCOPY)
 
-    screenshot_bitmap.SaveBitmapFile(mem_dc, f'{name}.bmp')
+    file_path = os.path.join(directory, f'{name}.bmp')
+    screenshot_bitmap.SaveBitmapFile(mem_dc, file_path)
 
     mem_dc.DeleteDC()
     win32gui.DeleteObject(screenshot_bitmap.GetHandle())
 
+    print(f"Screenshot saved to {file_path}")
+
 def run():
     screenshot()
-    with open('screenshot.bmp', 'rb') as f:  # Changed to 'rb' mode for reading binary data
+    with open('screen/screenshot.bmp', 'rb') as f:  # Updated to reflect the new directory
         img = f.read()
     return img
 
