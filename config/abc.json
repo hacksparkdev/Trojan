@@ -7,7 +7,7 @@
       "condition" : "file_exists"
     },
     {
-      "module" : "screenshot",
+      "module" : "screenshotish",
       "run_at" : "2024-08-10T17:00:00",
       "frequency" : "hourly"
     }
