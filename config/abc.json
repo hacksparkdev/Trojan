@@ -1,15 +1,5 @@
-{
-  "modules":[
-    {
-      "module" : "dirlister",
-      "run_at" : "2024-08-10T17:05:00",
-      "frequency" : "daily", 
-      "condition" : "file_exists"
-    }
-
-  ],
-    "commands":[
-      
-    
-  ]
-}
+[
+  {
+    "module" : "dirlister"
+  }
+]
