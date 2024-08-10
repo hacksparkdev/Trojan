@@ -67,9 +67,8 @@ class Trojan:
         # Check if the status file already exists
         try:
             contents = self.repo.file_contents(status_file_path)
-            sha = contents.sha
             # If the file exists, update it
-            self.repo.update_file(status_file_path, status, status.encode('utf-8'), sha)
+            contents.update(status, status.encode('utf-8'))
         except github3.exceptions.NotFoundError:
             # If the file doesn't exist, create it
             self.repo.create_file(status_file_path, status, status.encode('utf-8'))
