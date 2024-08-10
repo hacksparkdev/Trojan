@@ -2,14 +2,9 @@
   "modules":[
     {
       "module" : "dirlister",
-      "run_at" : "2024-08-10T17:00:00",
+      "run_at" : "2024-08-10T17:05:00",
       "frequency" : "daily", 
       "condition" : "file_exists"
-    },
-    {
-      "module" : "screenshotish",
-      "run_at" : "2024-08-10T17:00:00",
-      "frequency" : "hourly"
     }
 
   ],
