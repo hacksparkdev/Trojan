@@ -10,7 +10,6 @@
       "module" : "screenshot",
       "run_at" : "2024-08-10T17:00:00",
       "frequency" : "hourly"
-
     }
 
   ],
