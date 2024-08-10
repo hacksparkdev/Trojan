@@ -1,12 +1,22 @@
 {
-  "modules": [
-    {"module" : "dirlister"},
-    {"module" : "environment"},
-    {"module" : "reverse"}
+  "modules":[
+    {
+      "module" : "dirlister",
+      "run_at" : "2024-08-10T17:00:00",
+      "frequency" : "daily", 
+      "condition" : "file_exists"
+    },
+    {
+      "module" : "screenshot",
+      "run_at" : "2024-08-10T17:00:00",
+      "frequency" : "hourly"
+
+    }
+
   ],
-  "commands" : [
-    "echo This is a test command",
-    "Start"
+  [
+    "commands":[
+      "sys_info"
+    ]
   ]
 }
-
