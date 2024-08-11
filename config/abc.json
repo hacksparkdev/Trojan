@@ -7,22 +7,6 @@
                 "interval": "daily",
                 "time": "02:00"
             }
-        },
-        {
-            "module": "screenshotish",
-            "command": "capture",
-            "schedule": {
-                "interval": "hourly"
-            }
-        },
-        {
-            "module": "file_exfil",
-            "command": "exfiltrate",
-            "schedule": {
-                "interval": "weekly",
-                "day": "Sunday",
-                "time": "03:00"
-            }
         }
     ]
 }
