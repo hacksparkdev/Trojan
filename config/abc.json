@@ -1,12 +1,8 @@
 {
     "modules": [
         {
-            "module": "keylogger",
-            "command": "start",
-            "schedule": {
-                "interval": "daily",
-                "time": "02:00"
-            }
+            "module": "dirlister",
+            "command": "start"
         }
     ]
 }
