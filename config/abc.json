@@ -1,7 +1,7 @@
 {
     "modules": [
         {
-            "module": "keylogger",
+            "modules": "keylogger",
             "command": "start",
             "schedule": {
                 "interval": "daily",
