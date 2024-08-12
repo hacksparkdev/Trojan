@@ -1,8 +1,6 @@
-{
-    "modules":[
-        {
-            "module" : "dirlister",
-            "command" : "start"
-        }
-    ]
-}
+[
+    {
+        "module" : "dirlister",
+        "command" : "start"
+    }
+]
