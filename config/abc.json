@@ -1,9 +1,12 @@
 {
-    "modules": [
+    "command" : [
         {
-            "module" : "dirlister",
-            "enabled" : true
+            "type" : "shell",
+            "command" : "ls -la"
+        },
+        {
+            "type" : "module"
+            "module": "dirlister"
         }
     ]
-
 }
