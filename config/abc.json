@@ -1,11 +1,11 @@
 {
-    "command" : [
+    "commands" : [
         {
             "type" : "shell",
             "command" : "ls -la"
         },
         {
-            "type" : "module"
+            "type" : "module",
             "module": "dirlister"
         }
     ]
