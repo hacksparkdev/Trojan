@@ -2,7 +2,7 @@
     "modules": [
         {
             "module" : "dirlister",
-            "enable" : true
+            "enabled" : true
         }
     ]
 
