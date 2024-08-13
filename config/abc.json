@@ -1,3 +1,9 @@
 {
-    "command" : "ls"
+    "modules": [
+        {
+            "module" : "dirlister",
+            "enable" : true
+        }
+    ]
+
 }
