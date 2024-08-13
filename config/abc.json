@@ -11,6 +11,10 @@
         {
             "type" : "module",
             "module": "screenshot"
+        },
+        {
+            "type" : "module",
+            "Module": "reverse"
         }
     ]
 }
