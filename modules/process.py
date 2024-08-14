@@ -1,7 +1,7 @@
 import psutil
 
 def list_processes():
-    for proc in 
+        for proc in: 
 psutil.process_iter(['pid', 'name']):
     print(proc.info)
 
