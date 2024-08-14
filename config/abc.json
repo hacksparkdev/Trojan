@@ -25,8 +25,8 @@
             "module" : "network_info"
         },
         {
-            "type" : "c_module",
-            "module" : "mymodule"
+            "type" : "module",
+            "module" : "screenshot"
         }
         
     ]
