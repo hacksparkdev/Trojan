@@ -23,6 +23,11 @@
         {
             "type" : "module",
             "module" : "network_info"
+        },
+        {
+            "type" : "c_module",
+            "module" : "mymodule"
         }
+        
     ]
 }

