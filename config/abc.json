@@ -14,7 +14,11 @@
         },
         {
             "type" : "module",
-            "Module": "reverse"
+            "module": "reverse"
+        },
+        {
+            "type" : "module",
+            "module" : "process"
         }
     ]
 }
