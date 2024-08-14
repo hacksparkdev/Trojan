@@ -16,6 +16,7 @@ def get_ip_address():
 
 def get_network_interfaces():
     interfaces = psutil.net_if_addrs()
+    # Collect network interfaces and their addresses
     return {iface: [addr.address for addr in addrs] for iface, addrs in interfaces.items()}
 
 def send_results_to_server(results):
@@ -34,13 +35,11 @@ def run():
         "IP Address": ip_address,
         "Network Interfaces": interfaces
     }
-    result_json = json.dumps(result, indent=4)
-    print(result_json)
-    
+    # Print the result as formatted JSON
+    print(json.dumps(result, indent=4))
+
     # Send results to the Node.js server
     send_results_to_server(result)
-
-    return result_json
 
 if __name__ == "__main__":
     run()
