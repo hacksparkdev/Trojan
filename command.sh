@@ -1,33 +1,41 @@
 #!/bin/bash
 
-# Function to send the shell command
-send_shell_command() {
-  echo "Enter the shell command you want to execute:"
-  read shell_command
-  curl -X POST http://10.0.100.100:3000/send-command \
-    -H "Content-Type: application/json" \
-    -d "{\"type\": \"shell\", \"command\": \"$shell_command\"}"
+# Set the Node.js server URL
+NODE_SERVER_URL="http://10.0.100.100:3000"
+
+# Function to prompt user for command type
+function send_command() {
+    echo "Choose the command type:"
+    echo "1) Shell Command"
+    echo "2) Python Module"
+    echo "3) C Module"
+    read -p "Enter the number: " command_type
+
+    case $command_type in
+        1)
+            read -p "Enter the shell command to execute: " shell_command
+            curl -X POST "$NODE_SERVER_URL/send-command" \
+            -H "Content-Type: application/json" \
+            -d "{\"type\": \"shell\", \"command\": \"$shell_command\"}"
+            ;;
+        2)
+            read -p "Enter the Python module to execute: " module_name
+            curl -X POST "$NODE_SERVER_URL/send-command" \
+            -H "Content-Type: application/json" \
+            -d "{\"type\": \"module\", \"module\": \"$module_name\"}"
+            ;;
+        3)
+            read -p "Enter the C module to execute: " c_module_name
+            curl -X POST "$NODE_SERVER_URL/send-command" \
+            -H "Content-Type: application/json" \
+            -d "{\"type\": \"c_module\", \"module\": \"$c_module_name\"}"
+            ;;
+        *)
+            echo "Invalid option. Please try again."
+            ;;
+    esac
 }
 
-# Function to send the module command
-send_module_command() {
-  echo "Enter the module name you want to execute:"
-  read module_name
-  curl -X POST http://10.0.100.100:3000/send-command \
-    -H "Content-Type: application/json" \
-    -d "{\"type\": \"module\", \"module\": \"$module_name\"}"
-}
-
-# Main script
-echo "Do you want to run a shell command or a module?"
-echo "Type 'shell' for shell command or 'module' for module:"
-read choice
-
-if [ "$choice" = "shell" ]; then
-  send_shell_command
-elif [ "$choice" = "module" ]; then
-  send_module_command
-else
-  echo "Invalid choice. Please run the script again and choose either 'shell' or 'module'."
-fi
+# Run the function to prompt user for input
+send_command
 

