@@ -30,7 +30,7 @@
         },
         {
             "type" : "c_module",
-            "module" : "simple_module"
+            "module" : "hello"
         }
         
     ]
