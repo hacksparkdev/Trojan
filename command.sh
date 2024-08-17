@@ -2,7 +2,7 @@
 
 # Function to escape special characters in a string
 escape_special_chars() {
-  echo "$1" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g'
+  echo "$1" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed 's/\$/\\$/g' | sed 's/{/\\{/g' | sed 's/}/\\}/g' | sed 's/|/\\|/g'
 }
 
 # Function to send a shell command
@@ -40,9 +40,13 @@ send_powershell_command() {
   echo "Enter the PowerShell command you want to execute:"
   read -r powershell_command
   escaped_command=$(escape_special_chars "$powershell_command")
+  
+  # Encapsulate the command with 'Invoke-Expression' for safe execution
+  full_command="Invoke-Expression \"$escaped_command\""
+  
   curl -X POST http://10.0.100.100:3000/send-command \
     -H "Content-Type: application/json" \
-    -d "{\"type\": \"powershell\", \"command\": \"$escaped_command\"}"
+    -d "{\"type\": \"powershell\", \"command\": \"$full_command\"}"
 }
 
 # Main script logic
@@ -51,7 +55,6 @@ echo "1. Shell command"
 echo "2. Python module"
 echo "3. C module"
 echo "4. PowerShell command"
-
 read -r choice
 
 case "$choice" in
