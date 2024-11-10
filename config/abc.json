@@ -1,37 +1,8 @@
-{
-    "commands" : [
-        {
-            "type" : "shell",
-            "command" : "ls -la"
-        },
-        {
-            "type" : "module",
-            "module": "dirlister"
-        },
-        {
-            "type" : "module",
-            "module": "screenshot"
-        },
-        {
-            "type" : "module",
-            "module": "reverse"
-        },
-        {
-            "type" : "module",
-            "module" : "process"
-        },
-        {
-            "type" : "module",
-            "module" : "network_info"
-        },
-        {
-            "type" : "module",
-            "module" : "keylogger"
-        },
-        {
-            "type" : "c_module",
-            "module" : "hello"
-        }
-        
-    ]
-}
+[
+  {
+    "module" : "dirlister"
+  },
+  {
+    "module" : "environment"
+  }
+]
